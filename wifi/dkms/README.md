@@ -28,4 +28,4 @@ is available. A future ABI without that source fails the build explicitly.
 Other kernel families are excluded, not claimed supported. Before rebooting
 after an upgrade, check `dkms status` and module selection for the new kernel;
 keep the working older kernel. The patch may require review for later source
-changes. See `WIFI-RECOVERY.md` at the repository root.
+changes. See `WIFI-5GHZ-RECOVERY.md` at the repository root.

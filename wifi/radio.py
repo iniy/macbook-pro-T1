@@ -6,7 +6,7 @@ import struct
 import subprocess
 import tempfile
 
-# Broadcom's public wlioctl ABI; see SOURCES.md. Buffers fit both request names
+# Broadcom's public wlioctl ABI; see CREDITS.md. Buffers fit both request names
 # and response structures. An iovar name must never be truncated to four bytes.
 QUERIES = {
     'antenna_rssi_dbm': (262, b'phy_rssi_ant\0', 64),

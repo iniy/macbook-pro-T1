@@ -9,22 +9,17 @@ import tarfile
 ROOT = Path(__file__).resolve().parents[1]
 VERSION = '1.0.0'
 FILES = ['install.sh', 'install-ubuntu.sh', 'verify-ubuntu.sh', 'uninstall-ubuntu.sh', 'CREDITS.md',
-         'README.md', 'BUILD-REPORT.md', 'RECOVERY.md', 'LICENSE', 'SOURCES.md',
-          'UBUNTU-INSTALL-RESULT.md', 'WIFI-IMPLEMENTATION-REPORT.md',
-          'WIFI-ROOT-CAUSE-REPORT.md', 'WIFI-BENCHMARKS.md', 'WIFI-RECOVERY.md']
-FILES += ['WIFI-2.4GHZ-ROOT-CAUSE.md', 'WIFI-2.4GHZ-BENCHMARKS.md',
-          'WIFI-2.4GHZ-RECOVERY.md', 'WIFI-2.4GHZ-IMPLEMENTATION.md']
+          'README.md', 'LICENSE']
 FILES += ['WIFI-5GHZ-IMPLEMENTATION.md', 'WIFI-5GHZ-BENCHMARKS.md', 'WIFI-5GHZ-RECOVERY.md']
 FILES += ['install-audio.sh', 'verify-audio.sh', 'uninstall-audio.sh',
           'install-camera.sh', 'verify-camera.sh', 'uninstall-camera.sh',
-          'AUDIO-CAMERA-IMPLEMENTATION-REPORT.md',
           'install-wifi.sh', 'verify-wifi.sh', 'uninstall-wifi.sh']
-DIRS = ['driver', 'patches', 'lib', 'config', 'tests', 'audio', 'camera', 'wifi', 'desktop', 'LICENSES']
+DIRS = ['driver', 'patches', 'lib', 'config', 'tests', 'audio', 'camera', 'wifi', 'desktop']
 TOOLS = ['tools/package.py', 'tools/capture-macos.py', 'tools/validate-linux.sh',
          'tools/test-macos.py', 'tools/prepare-vm.py', 'tools/run-vm.sh',
          'tools/vm-ssh.sh', 'tools/qemu-launch.c', 'tools/hypervisor.entitlements']
 REPORTS = ['reports/macos-hardware.json', 'reports/linux-build-7.3.0-9-generic.log',
-           'reports/wifi-baseline.md', 'reports/wifi-final.json',
+           'reports/wifi-final.json',
            'reports/linux-static-analysis.log', 'reports/linux-integration.log',
            'reports/macos-tests.log', 'reports/linux-final-checks.log',
            'reports/package-validation.log',

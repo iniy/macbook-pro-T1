@@ -1,7 +1,7 @@
-MIT License (new packaging, scripts, tests and documentation only)
+MIT License
 
 Copyright (c) 2026 Iniy
-Copyright (c) 2026 macbook-t1-ubuntu contributors
+Copyright (c) 2026 macbook-pro-T1 contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -21,56 +21,21 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-THIRD-PARTY COMPONENTS AND ATTRIBUTION
-====================================
+## License boundaries
 
-The MIT terms above cover this project's new integration code, packaging,
-scripts, tests and documentation. They do not replace upstream licenses.
-Copyright notices and SPDX identifiers in individual source files are retained
-and govern those files and their derivative changes.
+The MIT license applies to original integration code, installers, tests and
+documentation in this repository. Original code generated with AI is also MIT
+licensed when it is original work by this project.
 
-* Touch Bar / iBridge: GPL-2.0 and GPL-2.0-or-later as marked in the source.
-  Copyright and credit include Ronald Tschalär (roadrunner2), the t2linux
-  contributors, AJ-dev-i60 and contributors, and Eugene Ray's resume patch.
-  Included HID definitions retain the notices of Andreas Gal, Vojtech Pavlik,
-  Michael Haboustak / Concept2, Inc., and Jiri Kosina. See driver/LICENSE.
+It does not relicense upstream code. The following remain under their own
+licenses, as marked by their source files:
 
-* CS8409 audio / ALSA: GPL-2.0-only or GPL-2.0-or-later as marked in each file.
-  Credit: davidjo and snd_hda_macbookpro contributors, leifliddy, Cirrus Logic,
-  Inc., Cirrus Logic International Semiconductor Ltd., Takashi Iwai, and the
-  Linux/ALSA contributors. See audio/upstream/LICENSE and the license texts
-  under audio/kernel-source/7.3.0-9.9/LICENSES/.
+* `driver/`: GPL-2.0 / GPL-2.0-or-later; see `driver/LICENSE`.
+* `audio/`: GPL-2.0-only / GPL-2.0-or-later; see `audio/upstream/LICENSE` and
+  the included kernel license texts.
+* `wifi/dkms/`: ISC; see `wifi/dkms/LICENSE.ISC` and source SPDX headers.
 
-* Broadcom brcmfmac and bundled brcm80211 headers: ISC, with original notices
-  for Broadcom Corporation, Hans de Goede, the Asahi Linux Contributors and
-  other contributors preserved in the source. The Wi-Fi kernel patches follow
-  the affected source's ISC license. See wifi/dkms/LICENSE.ISC.
-
-* Bogdan Korolyov (Bogdan7c): the BCM43602 5 GHz implementation and
-  fixed_regdom investigation are primary references for this Ubuntu port.
-  His driver patch is ISC; his scripts are MIT. The upstream MIT notice and
-  clarification are reproduced in LICENSES/Bogdan7c-MIT.txt.
-
-* Broadcom firmware: separately licensed by Broadcom, not under this project's
-  MIT license or the driver's ISC license. The firmware binary is obtained
-  from Ubuntu/linux-firmware and is not bundled in this repository or source
-  archive. See LICENSES/Broadcom-firmware.txt.
-
-* Community NVRAM: credited to its published provenance through MikeRatcliffe,
-  the kernel bug 193121 discussion and Bogdan7c. Related extraction and
-  configuration research includes Sonal Santan and Andy Holst. This project
-  does not assert MIT/ISC licensing or redistribution permission for that
-  board data; it is fetched separately from a pinned upstream source.
-
-* Camera, keyboard, trackpad and other stock kernel support retain their
-  upstream Linux licenses. Credit includes Laurent Pinchart and the UVC team,
-  Ronald Tschalär, Federico Lorenzi, and the Linux HID/input/USB contributors.
-
-Linux developers and maintainers, Canonical/Ubuntu and Debian maintainers,
-linux-firmware and wireless-regdb contributors, and the external build and
-diagnostic tool projects are also credited in CREDITS.md. That file records
-the direct implementation lineage, research acknowledgments and toolchain
-credits. SOURCES.md records exact revisions and the role of each source.
-
-Attribution is not a claim of endorsement, and does not change any upstream
-copyright ownership, license terms or redistribution conditions.
+Ubuntu's Broadcom firmware is downloaded from Ubuntu at installation time and
+is not included or redistributed by this repository. Community board data is
+also fetched separately; this repository does not grant additional rights to
+that data.

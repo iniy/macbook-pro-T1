@@ -9,11 +9,8 @@ The owner's later 5 GHz objective is implemented by `install-5ghz.sh`,
 [recovery](../WIFI-5GHZ-RECOVERY.md) and [upstream credits](../CREDITS.md).
 The original 2.4 GHz investigation and base component remain documented below.
 
-**2.4 GHz reception remains unresolved.** See the focused
-[root-cause report](../WIFI-2.4GHZ-ROOT-CAUSE.md),
-[measurements](../WIFI-2.4GHZ-BENCHMARKS.md) and
-[recovery](../WIFI-2.4GHZ-RECOVERY.md). The older reports retain the history
-of the separate DMA/association repair. 5 GHz is not an acceptance target.
+The final target is the working 5 GHz configuration. The original 2.4 GHz
+profile is retained as fallback, but was not able to associate during testing.
 
 Validated detection target: MacBookPro13,2, Apple BCM43602 revision 2,
 PCI `14e4:43ba`, subsystem `106b:0157`, Ubuntu 26.10, stock
@@ -24,7 +21,7 @@ exact PCI identity/revision from matching Ubuntu source. It restored traffic
 after traced IOMMU read faults; it does not correct radio calibration or expose
 5 GHz. Install with `sudo ./install-wifi.sh --dma-fix --install-deps --update`.
 See [DKMS source provenance](dkms/README.md) and
-[disk-only rollback](../WIFI-RECOVERY.md). Installation never unloads the live
+[5 GHz recovery](../WIFI-5GHZ-RECOVERY.md). Installation never unloads the live
 driver. The default suite invocation below still installs diagnostics only.
 
 ## Install and verify
@@ -137,7 +134,7 @@ board configuration. The `.ap.bin` is an AP-mode image, not a replacement STA fi
 Upstream WHENCE lists the BCM43602 binary under `LICENCE.broadcom_bcm43xx`;
 it does not supply a matching generic BCM43602 `.txt` or `.clm_blob` in the
 inspected package. Missing CLM alone is not proof of a missing required download.
-See [SOURCES.md](../SOURCES.md) for exact research commits and rejected recipes.
+See [CREDITS.md](../CREDITS.md) for the essential upstream repositories.
 
 Community files contain board flags, antenna paths/gains, PA tables and
 calibration values, sometimes mixed from different boards. Matching the PCI ID
@@ -219,7 +216,7 @@ It performs no external connectivity probes, radio resets, or secret requests.
 * Keep independent Ethernet connected before any Wi-Fi driver recovery. On SSH,
   check the route to the peer and arrange timed rollback before disrupting it.
 * Save logs privately before recovery. Immediate P2P/driver teardown caused
-  kernel crashes here; use [WIFI-RECOVERY.md](../WIFI-RECOVERY.md). Do not reset T1, USB,
+  kernel crashes here; use [WIFI-5GHZ-RECOVERY.md](../WIFI-5GHZ-RECOVERY.md). Do not reset T1, USB,
   audio, camera, NVMe or ACPI to recover Wi-Fi.
 * Suspend/reboot are unverified until tested on the physical machine. The
   installed verifier provides a post-boot check without initiating a reboot.
