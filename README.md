@@ -15,13 +15,21 @@ for the complete results, [UBUNTU-INSTALL-RESULT.md](UBUNTU-INSTALL-RESULT.md)
 for the original Touch Bar installation, and [BUILD-REPORT.md](BUILD-REPORT.md)
 for build validation.
 
-**Wi-Fi status: PARTIAL.** A hardware-scoped brcmfmac RX DMA fix restored actual
-2.4 GHz connectivity on the BCM43602 (`14e4:43ba`, Apple `106b:0157`, revision 02).
-Weak reception remains unresolved; the current investigation prioritizes 2.4 GHz. The DMA fix is
-integrated as an optional exact-source DKMS module with reversible installation.
-See [2.4 GHz root cause](WIFI-2.4GHZ-ROOT-CAUSE.md),
-[benchmarks](WIFI-2.4GHZ-BENCHMARKS.md), [recovery](WIFI-2.4GHZ-RECOVERY.md)
-and [component details](wifi/README.md).
+**Wi-Fi: optional 5 GHz implementation.** The exact-source Ubuntu DKMS driver
+and model-matched board data have connected this BCM43602 (`14e4:43ba`, Apple
+`106b:0157`, revision 02) at **80 MHz on channel 48**. See
+[implementation](WIFI-5GHZ-IMPLEMENTATION.md), [measured performance](WIFI-5GHZ-BENCHMARKS.md)
+and [recovery](WIFI-5GHZ-RECOVERY.md) for the actual acceptance status.
+The older [2.4 GHz investigation](WIFI-2.4GHZ-ROOT-CAUSE.md) is preserved.
+
+```bash
+# Exact supported Ubuntu/kernel/hardware; --activate requires independent Ethernet:
+sudo ./wifi/install-5ghz.sh --activate
+sudo ./wifi/verify-5ghz.sh
+```
+
+The new profile prefers 5 GHz. The original 2.4 GHz profile is retained, but its
+fallback association test did not pass with the reference board data.
 
 ```bash
 sudo ./install-wifi.sh --dma-fix --install-deps --update
@@ -30,18 +38,24 @@ sudo ./verify-wifi.sh --scan --online
 sudo ./install-wifi.sh --update --country IN
 ```
 
-Wi-Fi installation never copies community calibration or patches firmware.
-It does not restart networking. Successful installation is not proof that
-wireless association or internet access works.
+The base Wi-Fi diagnostics/DMA installer preserves firmware. The optional
+5 GHz component fetches pinned board data into an isolated directory and leaves
+the Ubuntu firmware binary unchanged. Successful installation alone is not
+proof of wireless throughput or stability.
+
+## Licensing and credits
+
+See [LICENSE](LICENSE) for the MIT/GPL/ISC and firmware license boundaries, and
+[CREDITS.md](CREDITS.md) for the upstream authors, reference implementations,
+research acknowledgments and build tools. Original copyright notices are
+retained; additional upstream notices are in [LICENSES/](LICENSES/).
 
 ## Install all components
 
 ```bash
 git clone https://github.com/iniy/macbook-pro-T1.git
 cd macbook-pro-T1
-sudo ./install-ubuntu.sh --all --install-deps
-# Save work and reboot for boot-persistence validation:
-sudo reboot
+sudo ./install.sh
 ```
 
 For an existing checkout, update it and install the complete suite:
@@ -49,14 +63,37 @@ For an existing checkout, update it and install the complete suite:
 ```bash
 cd ~/macbook-pro-T1
 git pull --ff-only
-sudo ./install-ubuntu.sh --all --install-deps
+sudo ./install.sh
 ```
 
-After login:
+The one-shot installer covers **Touch Bar, speakers/headphones/microphone,
+camera, 5 GHz Wi-Fi and GNOME keyboard preferences**. It reuses the independent
+component installers, keeps matching working installations, and installs needed
+Ubuntu dependencies. New kernel drivers are staged for reboot by default.
+
+Use an existing saved WPA2 Wi-Fi profile; the installer discovers the active
+profile or the only saved wireless profile. When several saved profiles exist
+and none is active, specify `--wifi-profile UUID`. The 5 GHz installer preserves
+the original profile and creates a higher-priority 5 GHz profile.
+
+```bash
+./install.sh --plan                         # inspect the actions without changes
+sudo ./install.sh --activate-wifi           # immediate Wi-Fi activation; Ethernet required
+sudo ./install.sh --no-install-deps         # dependencies already installed
+sudo ./install.sh --no-wifi                  # Touch Bar, audio, camera and desktop
+sudo ./install.sh --no-desktop               # hardware setup without a desktop session
+```
+
+The desktop step reports the three requested touchpad values and enables
+**Bounce Keys with a 100 ms delay** in the invoking user's GNOME session. It
+backs up the original values and supports restoration; see [desktop/README.md](desktop/README.md).
+
+After any required reboot/login:
 
 ```bash
 ./verify-ubuntu.sh --all
 ./verify-camera.sh --capture   # briefly uses the camera; retains no frames
+sudo ./wifi/verify-5ghz.sh
 ```
 
 `--touchbar`, `--audio`, `--camera` and `--wifi` select independent components; selectors
@@ -83,7 +120,7 @@ sudo ./install-ubuntu.sh --touchbar --camera --install-deps
 | 3.5 mm headphones | Supported upstream path and jack controls present; no wired headphones available for physical test |
 | Internal microphone | Actual signal captured; user confirmed browser recording; input level corrected to independent unity software gain |
 | FaceTime HD camera | Stock `uvcvideo`; MJPEG capture/decode and Firefox 1280×720 preview passed |
-| Built-in Wi-Fi | Narrow DMA patch restores 2.4 GHz traffic; weak reception, loss and missing 5 GHz remain unresolved |
+| Built-in Wi-Fi | Working 5 GHz / 80 MHz; measured 316.55 Mbps down / 84.68 Mbps up with 0% gateway loss in the selected-AP short test; 2.4 GHz fallback test failed |
 | Reboot / suspend | Persistence configured; post-reboot and suspend behavior remain unverified |
 
 See [AUDIO-CAMERA-IMPLEMENTATION-REPORT.md](AUDIO-CAMERA-IMPLEMENTATION-REPORT.md)
@@ -136,11 +173,13 @@ Copy `dist/macbook-t1-ubuntu-1.0.0.tar.gz` and its `.sha256` file to Ubuntu:
 sha256sum -c macbook-t1-ubuntu-1.0.0.tar.gz.sha256
 tar -xzf macbook-t1-ubuntu-1.0.0.tar.gz
 cd macbook-t1-ubuntu
-sudo ./install-ubuntu.sh --all --install-deps
+sudo ./install.sh
 ```
 
-Internet access is needed only for Ubuntu build dependencies and **headers matching
-`uname -r`**. Driver source and patches are bundled; no GitHub download is required.
+Internet access is used for Ubuntu dependencies, **headers matching `uname -r`**
+and the separately licensed, pinned Wi-Fi board-data download. Driver source
+and patches are bundled. The Wi-Fi component also accepts a checksum-matching
+offline reference file through its independent installer.
 Audio's initial Ubuntu HDA source subset is included; a later supported kernel
 ABI also requires its exact matching Ubuntu kernel source package.
 With dependencies already installed, omit `--install-deps` for an offline install.

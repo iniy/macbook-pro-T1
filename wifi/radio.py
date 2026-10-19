@@ -16,6 +16,8 @@ QUERIES = {
     'noise_dbm': (135, b'', 4),
     'revision': (98, b'', 68),
     'bands': (140, b'', 12),
+    'firmware_country': (262, b'country\0', 16),
+    'active_chanspec': (262, b'chanspec\0', 16),
 }
 
 
@@ -55,6 +57,19 @@ def get(iface, name):
 
 
 def decode(name, data):
+    if name == 'firmware_country':
+        return {'abbreviation': data[:4].split(b'\0', 1)[0].decode('ascii'),
+                'revision': struct.unpack_from('<i', data, 4)[0],
+                'table': data[8:12].split(b'\0', 1)[0].decode('ascii')}
+    if name == 'active_chanspec':
+        value = struct.unpack_from('<I', data)[0]
+        width = {0x1000: 20, 0x1800: 40, 0x2000: 80, 0x2800: 160}.get(value & 0x3800)
+        sideband = (value >> 8) & 7
+        if width is None or sideband >= width // 20:
+            raise ValueError('Unknown D11AC chanspec')
+        center = value & 0xff
+        return {'raw': value, 'width_mhz': width, 'center_channel': center,
+                'control_channel': center + (2 * sideband - (width // 20 - 1)) * 2}
     if name == 'antenna_rssi_dbm':
         version, count = struct.unpack_from('<II', data)
         if version != 1 or not 1 <= count <= 4:

@@ -1,0 +1,18 @@
+From: macbook-pro-T1 contributors
+Subject: [PATCH] brcmfmac: report selected PCIe board-data filename and length
+
+Report successful optional NVRAM loading without dumping calibration or device
+identity. This distinguishes an actual board-data download from binary fallback.
+
+SPDX-License-Identifier: ISC
+--- a/brcmfmac/pcie.c
++++ b/brcmfmac/pcie.c
+@@ -1720,6 +1720,8 @@
+ 	brcmf_pcie_write_ram32(devinfo, devinfo->ci->ramsize - 4, 0);
+ 
+ 	if (nvram) {
++		dev_info(&devinfo->pdev->dev, "board data %s (%u bytes)\n",
++			   devinfo->nvram_name, nvram_len);
+ 		brcmf_dbg(PCIE, "Download NVRAM %s\n", devinfo->nvram_name);
+ 		address = devinfo->ci->rambase + devinfo->ci->ramsize -
+ 			  nvram_len;

@@ -89,12 +89,13 @@ def transfers(iface, server, repeats, delay):
     return results
 
 
-def measure(duration=120, interval=2, server=None, repeats=3):
+def measure(duration=120, interval=2, server=None, repeats=3, band='2.4'):
     dev = check.hardware()
     iface = check.interface(dev)
     first = check.snapshot(online=True, radio_info=os.geteuid() == 0)
-    if not first['link']['associated'] or not 2400 < (first['link']['frequency_mhz'] or 0) < 2500:
-        raise RuntimeError('Benchmark requires an associated 2.4 GHz link')
+    low, high = (2400, 2500) if band == '2.4' else (4900, 5900)
+    if not first['link']['associated'] or not low < (first['link']['frequency_mhz'] or 0) < high:
+        raise RuntimeError('Benchmark requires an associated ' + band + ' GHz link')
     _, routes = check.command('ip', '-j', '-4', 'route', 'show', 'default', 'dev', iface)
     gateway = next((r['gateway'] for r in json.loads(routes) if 'gateway' in r), None)
     if not gateway:
@@ -173,6 +174,7 @@ def main():
     parser.add_argument('--seconds', type=int, default=120)
     parser.add_argument('--interval', type=float, default=2)
     parser.add_argument('--iperf-server')
+    parser.add_argument('--band', choices=['2.4', '5'], default='2.4')
     parser.add_argument('--repeats', type=int, default=3)
     parser.add_argument('--output', type=Path, required=True, help='New local JSON file; never overwritten')
     args = parser.parse_args()
@@ -183,7 +185,7 @@ def main():
     os.umask(0o077)
     with args.output.open('x') as stream:
         try:
-            result = measure(args.seconds, args.interval, args.iperf_server, args.repeats)
+            result = measure(args.seconds, args.interval, args.iperf_server, args.repeats, args.band)
         except Exception as error:
             json.dump({'completed': False, 'error_type': type(error).__name__}, stream)
             raise

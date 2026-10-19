@@ -1,0 +1,122 @@
+From: macbook-pro-T1 contributors
+Subject: [PATCH] brcmfmac: opt-in constrained legacy 80 MHz table for Apple 43602
+
+The 7.35.177.61 IN tables tested here contain no 80 MHz chanspecs, although
+bw_cap=7 and VHT are enabled. Use the reference GB/3 firmware capability table
+while cfg80211 retains the physical country IN. The firmware normalizes its
+abbreviation to GB; do not repeatedly rewrite an already selected GB/3 table.
+Keep user country handling and cfg80211
+rules, ignore conflicting AP country hints, and restrict this mode to the
+common non-DFS 36-48 block with a 17 dBm conducted-power ceiling. No RF
+calibration, PA, chain or amplifier values are changed. Default off.
+
+SPDX-License-Identifier: ISC
+--- a/brcmfmac/cfg80211.c
++++ b/brcmfmac/cfg80211.c
+@@ -8259,6 +8259,60 @@
+ 	return err;
+ }
+ 
++static bool brcmf_legacy_80mhz;
++module_param_named(legacy_80mhz, brcmf_legacy_80mhz, bool, 0444);
++MODULE_PARM_DESC(legacy_80mhz,
++		 "Apple 43602 IN legacy 80 MHz mapping; channels 36-48, 17 dBm limit");
++
++static bool brcmf_legacy_80_enabled(struct brcmf_pub *drvr)
++{
++	struct device *dev = drvr->bus_if->dev;
++	struct pci_dev *pdev;
++
++	if (!brcmf_legacy_80mhz || !dev_is_pci(dev))
++		return false;
++	pdev = to_pci_dev(dev);
++	return pdev->vendor == PCI_VENDOR_ID_BROADCOM &&
++	       pdev->device == 0x43ba &&
++	       pdev->subsystem_vendor == PCI_VENDOR_ID_APPLE &&
++	       pdev->subsystem_device == 0x0157 && pdev->revision == 0x02;
++}
++
++static int brcmf_legacy_80_country(struct brcmf_if *ifp)
++{
++	struct brcmf_fil_country_le country = {
++		.country_abbrev = "IN",
++		.rev = cpu_to_le32(3),
++		.ccode = "GB",
++	};
++	int err;
++
++	err = brcmf_fil_iovar_data_set(ifp, "country", &country,
++				       sizeof(country));
++	if (err)
++		return err;
++	/* qtxpower without TXPWR_OVERRIDE: firmware limits still apply. */
++	return brcmf_fil_iovar_int_set(ifp, "qtxpower", 17 * 4);
++}
++
++static void brcmf_legacy_80_channels(struct wiphy *wiphy)
++{
++	struct ieee80211_supported_band *band = wiphy->bands[NL80211_BAND_5GHZ];
++	int i;
++
++	if (!band)
++		return;
++	for (i = 0; i < band->n_channels; i++) {
++		struct ieee80211_channel *ch = &band->channels[i];
++
++		if (ch->hw_value < 36 || ch->hw_value > 48) {
++			ch->flags |= IEEE80211_CHAN_DISABLED;
++			ch->orig_flags |= IEEE80211_CHAN_DISABLED;
++		}
++		ch->max_power = min(ch->max_power, 17);
++	}
++}
++
+ static bool brcmf_fixed_regdom;
+ module_param_named(fixed_regdom, brcmf_fixed_regdom, bool, 0644);
+ MODULE_PARM_DESC(fixed_regdom,
+@@ -8317,6 +8371,22 @@
+ 		return;
+ 	}
+ 
++	if (brcmf_legacy_80_enabled(drvr) &&
++	    req->alpha2[0] == 'I' && req->alpha2[1] == 'N') {
++		if ((!memcmp(ccreq.country_abbrev, "IN\0", 3) ||
++		     !memcmp(ccreq.country_abbrev, "GB\0", 3)) &&
++		    !memcmp(ccreq.ccode, "GB\0", 3) && le32_to_cpu(ccreq.rev) == 3)
++			return;
++		err = brcmf_legacy_80_country(ifp);
++		if (err) {
++			bphy_err(drvr, "Legacy India mapping failed: %d\n", err);
++			return;
++		}
++		brcmf_setup_wiphybands(cfg);
++		brcmf_legacy_80_channels(wiphy);
++		return;
++	}
++
+ 	/* cfg80211 has already applied host channel/DFS/power restrictions.
+ 	 * Keep the valid local firmware table without a reset-causing country
+ 	 * rewrite. Explicit user requests still take the ordinary path below.
+@@ -8423,6 +8493,13 @@
+ 	 */
+ 	drvr->config = cfg;
+ 
++	if (brcmf_legacy_80_enabled(drvr)) {
++		err = brcmf_legacy_80_country(ifp);
++		if (err)
++			goto priv_out;
++		wiphy->regulatory_flags |= REGULATORY_COUNTRY_IE_IGNORE;
++	}
++
+ 	err = brcmf_setup_wiphy(wiphy, ifp);
+ 	if (err < 0)
+ 		goto priv_out;
+@@ -8431,6 +8508,8 @@
+ 	wiphy->reg_notifier = brcmf_cfg80211_reg_notifier;
+ 	wiphy->regulatory_flags |= REGULATORY_CUSTOM_REG;
+ 	wiphy_apply_custom_regulatory(wiphy, &brcmf_regdom);
++	if (brcmf_legacy_80_enabled(drvr))
++		brcmf_legacy_80_channels(wiphy);
+ 
+ 	/* firmware defaults to 40MHz disabled in 2G band. We signal
+ 	 * cfg80211 here that we do and have it decide we can enable

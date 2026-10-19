@@ -3,6 +3,36 @@
 Audit date: **2026-10-18**. Package: **macbook-t1-touchbar 1.0.0**.
 Requested target updated during work to the latest stable **Ubuntu 26.10**.
 
+## Final 5 GHz and one-shot integration — 2026-10-19
+
+The current package combines the preserved Touch Bar/audio/camera implementation
+with the optional, exact-source 5 GHz DKMS provider and per-user GNOME settings.
+Earlier Wi-Fi failure reports below describe superseded investigation stages.
+
+* Exact Ubuntu **7.3.0-9.9** build and live DKMS activation succeeded. Installed
+  and loaded brcmfmac srcversions match: `F5DC7E010E1E84F8F1F1231`.
+* Actual 5 GHz / 80 MHz operation on channel 48 passed DNS/HTTPS and short
+  device-bound LAN tests: selected-AP medians **316.55 Mbps down / 84.68 Mbps up**,
+  **0% gateway loss**. See WIFI-5GHZ-BENCHMARKS.md for conditions and variability.
+* The owner accepted Wi-Fi operation and ended experiments. No 30-minute,
+  reboot or suspend/resume pass is claimed. The temporary rollback timer is
+  stopped; offline backups and first-boot recovery remain configured.
+* Both custom-path firmware files are verified inside the rebuilt initramfs.
+* **38 Wi-Fi tests**, **2 one-shot routing tests**, and **5 existing component
+  routing tests** passed. ShellCheck, Python syntax and diff whitespace checks
+  passed. A root-owned Python cache prevented a user `py_compile` cache write;
+  in-memory syntax compilation passed without changing that existing cache.
+* `sudo ./install.sh --no-install-deps` completed on the physical system. Existing
+  Touch Bar, audio and Wi-Fi installations were reused, camera registration was
+  preserved, and the post-login verifier remained installed. No driver reload or
+  reboot was performed by this repeat installation.
+* GNOME Bounce Keys now reads `true` with delay `100`. The requested touchpad GET
+  values remained `true` / `false` / `false` for disable-while-typing, tap-to-click
+  and tap-and-drag respectively. Original keyboard settings were privately backed up.
+* Component licenses, upstream credits and firmware/NVRAM boundaries are documented
+  in LICENSE/CREDITS.md. The reproduced Bogdan7c MIT and Broadcom firmware license
+  texts were checked against their reviewed sources.
+
 ## Wi-Fi integration — 2026-10-19
 
 Branch `feature/bcm43602-wifi`, based on

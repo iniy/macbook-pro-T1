@@ -50,6 +50,12 @@ def module_path(kernel):
 
 
 def owned(kernel=None):
+    fiveg = Path('/var/lib/macbook-t1-wifi-5ghz')
+    if (fiveg / 'complete').is_file():
+        selected = module_path(kernel or os.uname().release)
+        status = run('dkms', 'status', '-m', 'macbook-t1-wifi-5ghz', '-v', '1.0.0')
+        if '/updates/dkms/' in str(selected) and ': installed' in status:
+            return True  # This combined module retains the same hardware-scoped DMA repair.
     if not (STATE / 'complete').is_file():
         return False
     kernel = kernel or os.uname().release
@@ -61,6 +67,8 @@ def owned(kernel=None):
 
 
 def remove():
+    if Path('/var/lib/macbook-t1-wifi-5ghz/complete').exists():
+        raise RuntimeError('Remove wifi/uninstall-5ghz.sh first; the combined module includes the DMA repair')
     if STATE.is_symlink() or SOURCE.is_symlink():
         raise RuntimeError('Refusing symlink installation/state')
     if not STATE.exists():

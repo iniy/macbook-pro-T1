@@ -1,5 +1,35 @@
 # Source audit and provenance — 2026-10-18
 
+## 5 GHz implementation and credits — 2026-10-19
+
+The current optional 5 GHz port is documented in
+[WIFI-5GHZ-IMPLEMENTATION.md](WIFI-5GHZ-IMPLEMENTATION.md).
+[CREDITS.md](CREDITS.md) consolidates the authors, projects, research and toolchain
+acknowledgments. [LICENSE](LICENSE) maps the applicable component licenses.
+
+Bogdan Korolyov / Bogdan7c's implementation at
+`35dd57c5b2b0fc8f76af5c6c2a45ead010692421` is the primary reference. Its
+ISC-licensed country patch informed the scoped Ubuntu patches, while its
+model-matched NVRAM and GB/3 findings were physically tested and adapted here.
+The upstream MIT notice is retained in `LICENSES/Bogdan7c-MIT.txt`; its global
+authentication-conversion service and original installer are not installed.
+
+The pinned NVRAM source has SHA256
+`9f757ace460a40c80a32202e09d507351a8c497f2dee22ba0f8a0a5cb1aebaf7` and traces
+to MikeRatcliffe's gist `9614c16a8ea09731a9d5e91685bd8c80`, history revision
+`38180b6a0ce552e1a3a2826ffea2bf1f52d05e9f`, and kernel bug 193121. Its source
+attribution is preserved without asserting a redistribution license for the
+data. The installer fetches it separately; no calibration file or proprietary
+firmware binary is included in the repository/source archive.
+
+The full Broadcom firmware license is reproduced from Ubuntu's
+`linux-firmware-broadcom-wireless` copyright file in
+`LICENSES/Broadcom-firmware.txt`. Original driver copyright/SPDX headers and
+the existing GPL/ISC texts remain intact. Exact kernel source is still Ubuntu
+**7.3.0-9.9**. No Touch Bar or audio source was replaced by this Wi-Fi port.
+
+The following earlier investigation entries retain their historical context.
+
 ## Wi-Fi extension — 2026-10-19
 
 The focused follow-up is in `WIFI-2.4GHZ-ROOT-CAUSE.md`. The installed image is
@@ -25,7 +55,7 @@ The inspected Android common branch resolves to
 |---|---|
 | [DeyAgrO/macbook-pro-13-2-linux](https://github.com/DeyAgrO/macbook-pro-13-2-linux), `1d52273baa4d86f71113b4e65a181c839fce94fb` | Read README, installation/packaging scripts, NVRAM and firmware-country patch; issue #1 concerns compressed firmware. Its board calibration is not validated for this unit; binary country rewriting and transmit-power dispatcher are not adopted. |
 | [xeeban/macbook-t1-linux](https://github.com/xeeban/macbook-t1-linux), `982d97a61a0c834d03e7cf7af5203b11ad7bae44` | Read Wi-Fi and sleep/resume implementation. Evaluated the stock `feature_disable=0x82000` workaround live. Corrected its bit interpretation using installed kernel source: bit 19 is SAE, not FWAUTH. Its mesh-specific and suspend conclusions are external observations, not proof about this machine. |
-| [Bogdan7c/macbook-bcm43602-wifi-fix](https://github.com/Bogdan7c/macbook-bcm43602-wifi-fix), `35dd57c5b2b0fc8f76af5c6c2a45ead010692421` | Read installer, README, NVRAM, `fixed_regdom` patch and vendor-query tool. Does not solve 2.4 GHz in its own report. Its GB/3 table, regulatory-notifier suppression, DKMS replacement and automatic SAE-to-PSK conversion are not adopted. Its MIT vendor-query utility was used locally for read-only country/capability inspection; no source or binary is vendored. |
+| [Bogdan7c/macbook-bcm43602-wifi-fix](https://github.com/Bogdan7c/macbook-bcm43602-wifi-fix), `35dd57c5b2b0fc8f76af5c6c2a45ead010692421` | Initially researched during the 2.4 GHz investigation; later became the primary 5 GHz reference after the owner changed priorities. The board data, GB/3 findings and country-patch concept were adapted and tested; the global SAE-to-PSK conversion service was not adopted. See the current section above for licensing and deployment. |
 | [Dunedan/mbp-2016-linux](https://github.com/Dunedan/mbp-2016-linux), `3da5e3f586ecd835c12d2c6a3021e66ca0934d96` | Hardware compatibility context; read Wi-Fi issues #47, #131, #172, #196, #201, #212 and #213 and relevant comments via GitHub API. Reports explicitly conflict on dual-band support and board calibration provenance. |
 | Ubuntu `linux-source-7.3.0` **7.3.0-9.9** | Examined actual `brcmfmac/{pcie,firmware,feature,common,dmi,cfg80211,vendor}.c` and `feature.h`. Subsequently traced the RX DMA fault, developed a narrow quirk and compiled/deployed an exact-source DKMS module; see WIFI-ROOT-CAUSE-REPORT.md. PCIe NVRAM/CLM/TXCAP requests are optional; `feature_disable` has no readable sysfs file; the driver can synthesize association status 16 on failure. |
 | Ubuntu `linux-firmware` **20260915.git1522c78a.1ubuntu** | Installed compressed BCM43602 firmware verified against package metadata. Binary **7.35.177.61**, FWID **01-ea662a8c**; no binary changes or firmware redistribution. Upstream [WHENCE](https://gitlab.com/kernel-firmware/linux-firmware/-/blob/main/WHENCE) identifies `LICENCE.broadcom_bcm43xx`. |
@@ -60,7 +90,10 @@ Authoritative references reviewed:
 
 Research checkouts/raw journals stay outside the repository. No community
 calibration data, Apple firmware, saved network credentials or machine identifiers
-are copied into the Wi-Fi component. New Wi-Fi packaging/documentation is MIT. The newly bundled exact Ubuntu brcmfmac source retains ISC licensing; see wifi/dkms/README.md and LICENSE.ISC.
+are committed to the repository or portable archive. The optional 5 GHz installer
+fetches its pinned board data separately. New Wi-Fi packaging/documentation is
+MIT. The bundled exact Ubuntu brcmfmac source retains ISC licensing; see
+wifi/dkms/README.md and wifi/dkms/LICENSE.ISC.
 
 For original-board-data research, Ubuntu libfsapfs **20240429-2ubuntu2** inspected
 the APFS container read-only. A locally built read-only `sgan81/apfs-fuse` then

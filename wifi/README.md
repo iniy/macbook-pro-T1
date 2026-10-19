@@ -1,5 +1,14 @@
 # BCM43602 Wi-Fi component
 
+## Optional 5 GHz / 80 MHz implementation
+
+The owner's later 5 GHz objective is implemented by `install-5ghz.sh`,
+`verify-5ghz.sh` and `uninstall-5ghz.sh` in this directory. See
+[implementation](../WIFI-5GHZ-IMPLEMENTATION.md),
+[actual benchmarks](../WIFI-5GHZ-BENCHMARKS.md),
+[recovery](../WIFI-5GHZ-RECOVERY.md) and [upstream credits](../CREDITS.md).
+The original 2.4 GHz investigation and base component remain documented below.
+
 **2.4 GHz reception remains unresolved.** See the focused
 [root-cause report](../WIFI-2.4GHZ-ROOT-CAUSE.md),
 [measurements](../WIFI-2.4GHZ-BENCHMARKS.md) and
