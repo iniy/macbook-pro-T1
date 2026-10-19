@@ -1,0 +1,41 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>MacBook T1 local camera test</title>
+<h1>Local FaceTime HD camera test</h1>
+<p>Allow camera access, check the live image, then stop. No images or recordings are saved or uploaded.</p>
+<button id="start">Start camera test</button>
+<button id="stop">Stop camera</button>
+<p id="status">Ready</p>
+<video id="preview" autoplay playsinline muted style="max-width:90vw;width:640px"></video>
+<script>
+let stream;
+const video = document.querySelector('#preview');
+const status = document.querySelector('#status');
+document.querySelector('#stop').onclick = () => {
+  stream?.getTracks().forEach(track => track.stop());
+  status.textContent = 'Camera stopped';
+};
+document.querySelector('#start').onclick = async () => {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({audio:false, video:{width:{ideal:1280},height:{ideal:720}}});
+    video.srcObject = stream;
+    await video.play();
+    let frames = 0;
+    function count() {
+      frames++;
+      status.textContent = `Live preview: ${video.videoWidth} × ${video.videoHeight}; ${frames} frames`;
+      if (frames < 30) video.requestVideoFrameCallback(count);
+      else {
+        fetch('/result', {method:'POST', headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({ok:true,frames,width:video.videoWidth,height:video.videoHeight})});
+        setTimeout(() => document.querySelector('#stop').click(), 20000);
+      }
+    }
+    video.requestVideoFrameCallback(count);
+  } catch (error) {
+    status.textContent = error.name + ': ' + error.message;
+    fetch('/result', {method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ok:false,error:error.name})});
+  }
+};
+</script>

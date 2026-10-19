@@ -5,10 +5,16 @@ export PATH=/usr/sbin:/usr/bin:/sbin:/bin
 ROOT=$(cd -- "$(dirname -- "$0")" && pwd)
 # shellcheck source=lib/common.sh
 source "$ROOT/lib/common.sh"
+for arg in "$@"; do
+    case "$arg" in
+        --touchbar|--audio|--camera|--all|--verify|--uninstall)
+            exec python3 "$ROOT/lib/components.py" install "$@" ;;
+    esac
+done
 deps=0
 case "${1:-}" in
     --install-deps) deps=1 ;;
-    --help|-h) echo 'Usage: sudo ./install-ubuntu.sh [--install-deps]'; exit 0 ;;
+    --help|-h) echo 'Usage: sudo ./install-ubuntu.sh [--touchbar|--audio|--camera|--all] [--install-deps] [--verify|--uninstall]'; exit 0 ;;
     '') ;;
     *) die 'Unknown argument. Use --help.' ;;
 esac
@@ -25,7 +31,15 @@ hardware_check
 KERNEL=$(uname -r)
 supported_kernel "$KERNEL" || die "Unsupported kernel $KERNEL; this package targets Ubuntu 7.3.0-*-generic."
 [[ -d /run/systemd/system ]] || die 'Requires a normally booted systemd Ubuntu installation.'
-[[ ! -e $STATE && ! -L $STATE ]] || die "Existing installation/transaction at $STATE. Run verify-ubuntu.sh or uninstall-ubuntu.sh first."
+if [[ -f $STATE/complete && ! -L $STATE ]]; then
+    for file in Makefile dkms.conf apple-ibridge.c apple-ibridge.h apple-touchbar.c hid-ids.h LICENSE; do
+        cmp -s "$ROOT/driver/$file" "/usr/src/$NAME-$VERSION/$file" || die 'Installed Touch Bar source differs; refusing to overwrite it.'
+    done
+    dkms status -m "$NAME" -v "$VERSION" -k "$KERNEL" | grep -q ': installed' || die 'Touch Bar DKMS is missing for this kernel; install matching headers and run dkms autoinstall.'
+    echo 'Touch Bar already installed; working modules and configuration preserved.'
+    exit 0
+fi
+[[ ! -e $STATE && ! -L $STATE ]] || die "Incomplete transaction at $STATE. Run uninstall-ubuntu.sh to complete rollback."
 if [[ $deps == 1 ]]; then
     # Ubuntu 26.10 Desktop ships dracut with an update-initramfs wrapper.
     # Preserve the installed initramfs provider instead of replacing it.

@@ -1,5 +1,49 @@
 # Source audit and provenance — 2026-10-18
 
+## Audio and camera extension — 2026-10-19
+
+| Source / pinned revision | Use and review |
+|---|---|
+| [davidjo/snd_hda_macbookpro](https://github.com/davidjo/snd_hda_macbookpro), `89b22ff90b86468b186706861dd18663562defa7` | Selected GPL audio implementation. Six required Apple CS8409 headers, license and documentation are vendored in `audio/upstream/`. Model subsystem `106b:3600` selects the existing SSM3515 sequence and CS42L83 jack path. `INTERNAL_MIKE_ONLY` enables upstream's capture fix for output-only headphones; it is not a claim of tested headset-mic support. |
+| Ubuntu `linux-source-7.3.0`, package **7.3.0-9.9** | Exact source corresponding to the running `7.3.0-9-generic` headers. The required HDA C/header subset and GPL license files are bundled in `audio/kernel-source/7.3.0-9.9/`. Obtained through authenticated Ubuntu apt metadata. No mainline or older-kernel substitute is used. |
+| [xtocdra/macbookpro13-2](https://github.com/xtocdra/macbookpro13-2), `177bd2d947adf8ecc95c3c72fd2fcd6f3748abbd` | Model-specific context for davidjo audio and standard `uvcvideo` on T1. Its whole-device rebind and Arch-specific setup were not adopted. |
+| [moabdrabou/macbook-pro-2017-linux-guide](https://github.com/moabdrabou/macbook-pro-2017-linux-guide), `e8d3131abf520745673d5244dd018eb99e697c47` | Reviewed duplex-profile guidance. Its unrelated-kernel source substitutions, replacement kernel and PCIe FaceTime driver instructions do not fit this machine/evidence and were not used. |
+| [standardagents/t1bridge](https://github.com/standardagents/t1bridge), `81cbdf81026a16e02f0bea74735c6b029a8ffae2` | Reviewed UVC H.264 descriptor implementation, package boundaries and camera issue #20. That work handles USB configuration 2. This project's existing configuration 1 provides MJPEG through stock UVC and passed capture/Firefox testing, so no T1Bridge code or Arch packages were installed or vendored. |
+
+`audio/SOURCE-SHA256.json` records the pinned vendored inputs and patch.
+`audio/patches/0001-apple-cs8409-ubuntu-7.3.patch` adapts davidjo's probe hook,
+Apple auxiliary structures and per-codec fields to the actual Ubuntu 7.3 header.
+It preserves new upstream fields, including `speaker_muted` and side-codec
+component state, and leaves shared HDA structures untouched. Amplifier gain,
+register sequences and channel mapping remain the selected upstream code.
+The existing Touch Bar C source is unchanged.
+
+Relevant reviewed upstream evidence:
+
+- davidjo issues [#193](https://github.com/davidjo/snd_hda_macbookpro/issues/193)
+  and [#205](https://github.com/davidjo/snd_hda_macbookpro/issues/205): compiling
+  against mismatched HDA structure layouts can build successfully and then
+  crash during probe/mixer operations. Exact source selection is mandatory.
+- [#206](https://github.com/davidjo/snd_hda_macbookpro/issues/206): the live
+  subsystem check supports `106b:3600`; a commented historical quirk is not the
+  active hardware gate.
+- [#211](https://github.com/davidjo/snd_hda_macbookpro/issues/211): unresolved
+  individual SSM3515 speaker/TDM behavior on 13-inch models. This integration
+  does not introduce speculative slot/register changes or claim four-driver
+  acoustic validation.
+- [#29](https://github.com/davidjo/snd_hda_macbookpro/issues/29), PRs #218/#219,
+  and the selected commit: microphone/jack concurrency remains an upstream
+  concern. Wired insertion/removal was not tested locally because headphones
+  were unavailable. Unreviewed PR code was not merged wholesale.
+- T1Bridge [#20](https://github.com/standardagents/t1bridge/issues/20): H.264
+  enumeration alone does not establish browser compatibility. Local camera
+  acceptance here uses actual MJPEG decoding and Firefox frame presentation.
+
+The kernel-derived code remains GPL-2.0/GPL-2.0-or-later as marked in its
+original headers; davidjo's GPL license is retained. New integration and
+diagnostic code follows the root MIT license. No Apple firmware, calibration
+data, proprietary binaries, raw recordings or machine identifiers are shipped.
+
 All four requested repositories were cloned with history into `sources/` on
 Monterey and inspected without running their installers. Those audit checkouts
 remain local; the portable archive contains the selected source and patches.

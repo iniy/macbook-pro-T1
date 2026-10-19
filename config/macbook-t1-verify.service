@@ -1,0 +1,13 @@
+[Unit]
+Description=Read-only MacBook T1 component verification after login
+After=pipewire.service wireplumber.service
+Wants=wireplumber.service
+ConditionPathExists=/etc/systemd/system/macbook-t1-touchbar.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/local/libexec/macbook-t1-suite/lib/postboot.py
+TimeoutStartSec=90
+
+[Install]
+WantedBy=default.target

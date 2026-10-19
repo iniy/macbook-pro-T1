@@ -3,6 +3,35 @@
 Audit date: **2026-10-18**. Package: **macbook-t1-touchbar 1.0.0**.
 Requested target updated during work to the latest stable **Ubuntu 26.10**.
 
+## Audio/camera integration — 2026-10-19
+
+Feature branch: `feature/ubuntu-audio-camera`, based on `36f31c8592c90b88aab1175e89d29f64eb9c3695`.
+
+- Exact Ubuntu **7.3.0-9.9** HDA sources and **7.3.0-9-generic** headers used.
+- Initial davidjo header patch stopped on changed 7.3 context. A minimal
+  source-layout adaptation preserved the new kernel fields; both CS8409
+  compilation units then compiled, modpost/link passed and vermagic matched.
+- Audio DKMS **macbook-t1-audio/1.0.0** built, signed and installed. Its actual
+  PKCS#7 signature passed verification before activation. The stock codec was
+  archived by DKMS for removal; the pre-audio boot image was backed up.
+- The custom audio codec was activated with an audio-only HDA codec reload,
+  while desktop audio was stopped. No T1 USB reset/rebind was performed.
+- PipeWire/WirePlumber software-mixer policy was checked on the actual card
+  and node. Muted volume changes altered `softVolumes` without changing ALSA
+  controls. The input's default was separated from the quiet output default.
+- Low-level left/right speaker speech was confirmed correct and clean.
+  Microphone samples were captured without clipping and the user confirmed
+  browser recording. Quiet diagnostic replay is deliberately attenuated.
+- Stock UVC captured/decoded MJPEG; Firefox presented 30 frames at 1280×720
+  and the user confirmed a live preview. No custom camera driver was needed.
+- Touch Bar binding/guard regression checks passed after installation and
+  audio activation; existing modules and service remain in place.
+
+Headphone playback/jack transitions, post-reboot operation, suspend/resume,
+individual woofer/tweeter behavior and maximum acoustic output are not claimed
+as verified. Detailed results and final packaging/test status are maintained in
+[AUDIO-CAMERA-IMPLEMENTATION-REPORT.md](AUDIO-CAMERA-IMPLEMENTATION-REPORT.md).
+
 ## Physical Ubuntu follow-up — 2026-10-19
 
 The package was installed and activated on the target MacBookPro13,2 with

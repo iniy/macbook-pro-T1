@@ -21,3 +21,4 @@ __pycache__/
 Module.symvers
 modules.order
 .tmp_versions/
+/audio/build/

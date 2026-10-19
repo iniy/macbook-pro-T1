@@ -11,7 +11,10 @@ VERSION = '1.0.0'
 FILES = ['install-ubuntu.sh', 'verify-ubuntu.sh', 'uninstall-ubuntu.sh',
          'README.md', 'BUILD-REPORT.md', 'RECOVERY.md', 'LICENSE', 'SOURCES.md',
          'UBUNTU-INSTALL-RESULT.md']
-DIRS = ['driver', 'patches', 'lib', 'config', 'tests']
+FILES += ['install-audio.sh', 'verify-audio.sh', 'uninstall-audio.sh',
+          'install-camera.sh', 'verify-camera.sh', 'uninstall-camera.sh',
+          'AUDIO-CAMERA-IMPLEMENTATION-REPORT.md']
+DIRS = ['driver', 'patches', 'lib', 'config', 'tests', 'audio', 'camera']
 TOOLS = ['tools/package.py', 'tools/capture-macos.py', 'tools/validate-linux.sh',
          'tools/test-macos.py', 'tools/prepare-vm.py', 'tools/run-vm.sh',
          'tools/vm-ssh.sh', 'tools/qemu-launch.c', 'tools/hypervisor.entitlements']
@@ -26,7 +29,7 @@ def main():
     names = list(FILES) + TOOLS + REPORTS
     for directory in DIRS:
         names.extend(str(p.relative_to(ROOT)) for p in (ROOT / directory).rglob('*')
-                     if p.is_file() and '__pycache__' not in p.parts)
+                     if p.is_file() and '__pycache__' not in p.parts and 'build' not in p.parts)
     for name in names:
         if not (ROOT / name).is_file() or (ROOT / name).is_symlink():
             raise SystemExit('Missing/unsafe package file: ' + name)

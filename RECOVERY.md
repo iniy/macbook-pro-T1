@@ -1,6 +1,62 @@
 # Recovery and rollback
 
-## Normal removal or interrupted installation
+## Audio/camera component recovery
+
+Keep the working Touch Bar while removing audio:
+
+```bash
+sudo ./uninstall-audio.sh
+sudo reboot
+```
+
+DKMS restores the archived stock CS8409 module, the owned WirePlumber/signing
+configuration is restored, and initramfs is rebuilt. The live audio module is
+left alone until reboot. The camera and iBridge are not reset.
+
+If the custom codec prevents boot, append this to GRUB's `linux` line for one
+boot, then uninstall audio once logged in:
+
+```text
+module_blacklist=snd_hda_codec_cs8409
+```
+
+This also blocks the stock codec for that one boot; the next normal boot after
+removal restores the distribution codec. The original running kernel and
+pre-audio initramfs were backed up before installation. No new kernel is needed.
+
+Camera removal only unregisters this project's camera component:
+
+```bash
+sudo ./uninstall-camera.sh
+```
+
+It leaves the distribution `uvcvideo` and shared T1 configuration intact.
+`sudo ./uninstall-ubuntu.sh --all` removes the post-login verification service,
+then camera registration, audio and Touch Bar in dependency order. Removing
+Touch Bar alone is refused while camera registration still depends on it.
+
+Audio transaction logs/backups: `/var/lib/macbook-t1-audio/`.
+Audio source: `/usr/src/macbook-t1-audio-1.0.0/`.
+Root-only signing material: `/var/lib/macbook-t1-audio-signing/` (retained on
+removal). Verification runtime ownership: `/var/lib/macbook-t1-suite/`.
+Later edits are preserved by the same edit-aware restore mechanism as Touch Bar.
+
+Never troubleshoot weak output by writing amplifier registers or playing via
+direct ALSA `hw:`/`plughw:`. Check software attenuation, the selected output port,
+PipeWire and the documented PCM software-volume layer first. Test helpers use
+deliberately quiet signals and return to mute afterward. If recording works in
+PipeWire but an already-running Firefox reports no microphone after an audio
+service reload, try the isolated browser test or restart Firefox normally after
+saving work; keep normal microphone permissions enabled.
+
+Audio DKMS builds use the exact Ubuntu source-package version of the target
+kernel headers. The initial `7.3.0-9.9` source subset is bundled. For a later
+7.3.0 ABI, install matching headers and the **matching version** of
+`linux-source-7.3.0`, then run `sudo dkms autoinstall -k "$(uname -r)"`.
+A source-version mismatch or patch failure is a blocker, not a reason to use
+an unrelated tarball. Keep the previously bootable kernel available.
+
+## Touch Bar-only removal or interrupted installation
 
 From the copied package on Ubuntu:
 

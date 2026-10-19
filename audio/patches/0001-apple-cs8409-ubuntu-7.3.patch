@@ -1,0 +1,110 @@
+--- a/codecs/cirrus/cs8409.c
++++ b/codecs/cirrus/cs8409.c
+@@ -1584,6 +1584,8 @@
+ 	}
+ }
+ 
++static int cs8409_apple(struct hda_codec *codec);
++
+ static int cs8409_probe(struct hda_codec *codec, const struct hda_device_id *id)
+ {
+ 	int err;
+@@ -1591,7 +1593,18 @@
+ 	if (!cs8409_alloc_spec(codec))
+ 		return -ENOMEM;
+ 
++        printk("snd_hda_intel: Primary cs8409\n");
++
+ 	snd_hda_pick_fixup(codec, cs8409_models, cs8409_fixup_tbl, cs8409_fixups);
++
++        // this seems the easiest way to separate and jump into the code for handling Apple machines using the 8409
++        // note now freeing the just allocated spec - this undos the delayed work as not using mutex yet
++        if (codec->fixup_id == HDA_FIXUP_ID_NOT_SET) {
++                printk("snd_hda_intel: Primary patch_cs8409 NOT FOUND trying APPLE\n");
++                cs8409_remove(codec);
++                err = cs8409_apple(codec);
++                return err;
++        }
+ 
+ 	codec_dbg(codec, "Picked ID=%d, VID=%08x, DEV=%08x\n", codec->fixup_id,
+ 			 codec->bus->pci->subsystem_vendor,
+@@ -1620,6 +1633,12 @@
+ 	.stream_pm = snd_hda_gen_stream_pm,
+ };
+ 
++
++// for the moment split the new code into an include file
++
++#include "cirrus_apple.h"
++
++
+ static const struct hda_device_id snd_hda_id_cs8409[] = {
+ 	HDA_CODEC_ID(0x10138409, "CS8409"),
+ 	{} /* terminator */
+--- a/codecs/cirrus/cs8409.h
++++ b/codecs/cirrus/cs8409.h
+@@ -302,6 +302,23 @@
+ 	unsigned int coeff;
+ };
+ 
++
++#ifdef APPLE_CODECS
++struct unsol_item {
++       struct list_head list;
++       unsigned int idx;
++       unsigned int res;
++};
++struct hda_cvt_setup_apple {
++       hda_nid_t nid;
++       u8 stream_tag;
++       u8 channel_id;
++       u16 format_id;
++       unsigned char active;   /* cvt is currently used */
++       unsigned char dirty;    /* setups should be cleared */
++};
++#endif
++
+ struct sub_codec {
+ 	struct hda_codec *codec;
+ 	unsigned int addr;
+@@ -312,6 +329,9 @@
+ 
+ 	unsigned int hp_jack_in:1;
+ 	unsigned int mic_jack_in:1;
++#ifdef APPLE_CODECS
++       unsigned int linein_jack_in:1;
++#endif
+ 	unsigned int suspended:1;
+ 	unsigned int paged:1;
+ 	unsigned int last_page;
+@@ -345,6 +365,30 @@
+ 	unsigned int init_done:1;
+ 	unsigned int build_ctrl_done:1;
+ 	unsigned int speaker_muted:1;
++
++#ifdef APPLE_CODECS
++	unsigned int spdif_detect:1;
++	unsigned int spdif_present:1;
++	unsigned int sense_b:1;
++	hda_nid_t vendor_nid;
++	hda_nid_t beep_nid;
++	int (*spdif_sw_put)(struct snd_kcontrol *, struct snd_ctl_elem_value *);
++	int block_unsol;
++	struct list_head unsol_list;
++	struct unsol_item unsol_items_prealloc[10];
++	int unsol_items_prealloc_used[10];
++	int intmike_nid, linein_nid, intmike_adc_nid, linein_amp_nid;
++	int reg9_intmike_dmic_mo, reg9_linein_dmic_mo;
++	int reg82_intmike_dmic_scl, reg82_linein_dmic_scl;
++	struct hda_cvt_setup_apple nid_0x02, nid_0x03, nid_0x0a;
++	struct hda_cvt_setup_apple nid_0x22, nid_0x23, nid_0x1a;
++	int jack_present, headset_type, have_mike, have_buttons;
++	int stream_channels, playing, capturing;
++	int headset_play_format_setup_needed, headset_capture_format_setup_needed;
++	int headset_presetup_done, use_data, headset_phase, headset_enable;
++	int play_init, capture_init, play_init_count, capture_init_count;
++	struct timespec64 last_play_time, first_play_time;
++#endif
+ 
+ 	/* verb exec op override */
+ 	int (*exec_verb)(struct hdac_device *dev, unsigned int cmd, unsigned int flags,

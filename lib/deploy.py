@@ -33,14 +33,14 @@ def atomic(path, data, mode=0o644):
     os.replace(tmp, path)
 
 
-def deploy(source, state=STATE, root=Path('/')):
+def deploy(source, state=STATE, root=Path('/'), *, usbmux=True):
     if (state / 'files.json').exists():
         raise RuntimeError('Transaction already exists; uninstall before replacing.')
     entries = [(dst, (source / src).read_bytes(), 0o755 if src.endswith('.sh') else 0o644)
                for src, dst in FILES.items()]
     # Override only the effective usbmuxd rule, preserving iPhone/iPad support.
     rules = {}
-    for directory in ['usr/lib/udev/rules.d', 'lib/udev/rules.d', 'etc/udev/rules.d']:
+    for directory in (['usr/lib/udev/rules.d', 'lib/udev/rules.d', 'etc/udev/rules.d'] if usbmux else []):
         for rule in (root / directory).glob('*usbmuxd*.rules'):
             rules[rule.name] = rule
     for name, rule in sorted(rules.items()):

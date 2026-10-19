@@ -6,6 +6,12 @@ export PATH=/usr/sbin:/usr/bin:/sbin:/bin
 ROOT=$(cd -- "$(dirname -- "$0")" && pwd)
 # shellcheck source=lib/common.sh
 source "$ROOT/lib/common.sh"
+for arg in "$@"; do
+    case "$arg" in
+        --touchbar|--audio|--camera|--all|--verify)
+            exec python3 "$ROOT/lib/components.py" verify "$@" ;;
+    esac
+done
 linux_only
 [[ $# == 0 ]] || die 'Usage: sudo ./verify-ubuntu.sh'
 failed=0

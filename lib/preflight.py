@@ -11,6 +11,9 @@ problems = []
 for path in [Path('/etc/dkms/framework.conf'), *Path('/etc/dkms/framework.conf.d').glob('*.conf')]:
     if not path.is_file() or path.name == 'zz-macbook-t1-touchbar.conf':
         continue
+    audio_signing = Path(__file__).resolve().parents[1] / 'audio/config/dkms-signing.conf'
+    if path.name == 'zz-macbook-t1-audio.conf' and audio_signing.is_file() and path.read_bytes() == audio_signing.read_bytes():
+        continue
     text = '\n'.join(line for line in path.read_text(errors='replace').splitlines()
                      if not line.lstrip().startswith('#'))
     if re.search(r'\b(mok_signing_key|mok_certificate|sign_file)\s*=', text):

@@ -5,9 +5,16 @@ export PATH=/usr/sbin:/usr/bin:/sbin:/bin
 ROOT=$(cd -- "$(dirname -- "$0")" && pwd)
 # shellcheck source=lib/common.sh
 source "$ROOT/lib/common.sh"
+for arg in "$@"; do
+    case "$arg" in
+        --touchbar|--audio|--camera|--all|--uninstall)
+            exec python3 "$ROOT/lib/components.py" uninstall "$@" ;;
+    esac
+done
 [[ $# == 0 ]] || die 'Usage: sudo ./uninstall-ubuntu.sh'
 linux_only
 root_only
+[[ ! -f /var/lib/macbook-t1-camera/complete ]] || die 'Camera depends on shared T1 initialization. Remove --camera first, or use --all.'
 [[ -d $STATE && ! -L $STATE ]] || { echo 'No owned installation to remove.'; exit 0; }
 exec 9>/run/macbook-t1-install.lock
 flock -n 9 || die 'Another install/uninstall is running.'

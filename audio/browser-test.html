@@ -1,0 +1,71 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>MacBook internal microphone test</title>
+<style>body{font:18px sans-serif;max-width:800px;margin:3em auto;padding:1em}button{font-size:18px;margin:.5em;padding:.6em}#status{padding:1em;background:#eee}meter{width:100%}</style>
+<h1>Internal microphone: local record and replay</h1>
+<p>Click Record, allow microphone access, then say a short sentence during the eight-second countdown.</p>
+<p>The recording stays in browser memory. Replay is normalized to a 5% peak; desktop volume is limited for this test.</p>
+<button id="record">Record 8 seconds</button>
+<button id="replay" disabled>Replay recording</button>
+<button id="confirm" disabled>I hear my voice clearly</button>
+<button id="failed">Voice is missing / unclear</button>
+<p><label>Test replay level (2.5–10% peak, deliberately attenuated):
+<input id="replay-level" type="range" min="0.5" max="2" step="0.1" value="1"></label></p>
+<p id="status">Ready</p><meter id="level" min="0" max="1" value="0"></meter>
+<script>
+let ctx, stream, processor, source, samples=[], recording, metrics, playing;
+const status=document.querySelector('#status');
+const replay=document.querySelector('#replay'), confirm=document.querySelector('#confirm');
+const recordButton=document.querySelector('#record');
+function stopCapture(){stream?.getTracks().forEach(t=>t.stop());processor?.disconnect();source?.disconnect();}
+document.querySelector('#record').onclick=async()=>{
+  recordButton.disabled=true;
+  stopCapture();await ctx?.close();samples=[];recording=null;replay.disabled=true;confirm.disabled=true;
+  try {
+    stream=await navigator.mediaDevices.getUserMedia({video:false,audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
+    ctx=new AudioContext();await ctx.resume();source=ctx.createMediaStreamSource(stream);
+    processor=ctx.createScriptProcessor(4096,1,1);
+    const silence=ctx.createGain();silence.gain.value=0;
+    source.connect(processor);processor.connect(silence);silence.connect(ctx.destination);
+    processor.onaudioprocess=event=>{
+      const block=new Float32Array(event.inputBuffer.getChannelData(0));samples.push(block);
+      let energy=0;for(const value of block)energy+=value*value;
+      document.querySelector('#level').value=Math.min(1,Math.sqrt(energy/block.length)*10);
+    };
+    let remaining=8;status.textContent='Recording — speak now! 8 seconds left';
+    const timer=setInterval(()=>{remaining--;status.textContent=`Recording — speak now! ${remaining} seconds left`;},1000);
+    setTimeout(()=>{
+      clearInterval(timer);stopCapture();silence.disconnect();processor.onaudioprocess=null;
+      const count=samples.reduce((n,b)=>n+b.length,0);recording=ctx.createBuffer(1,count,ctx.sampleRate);
+      const data=recording.getChannelData(0);let offset=0,peak=0,energy=0,clipped=0;
+      for(const block of samples){data.set(block,offset);offset+=block.length;}
+      for(const value of data){peak=Math.max(peak,Math.abs(value));energy+=value*value;if(Math.abs(value)>=.999)clipped++;}
+      metrics={sampleRate:ctx.sampleRate,frames:count,peakDb:20*Math.log10(Math.max(peak,1e-12)),
+        rmsDb:20*Math.log10(Math.max(Math.sqrt(energy/Math.max(count,1)),1e-12)),clipped};
+      if(peak>0){const gain=.05/peak;for(let i=0;i<data.length;i++)data[i]*=gain;}
+      samples=[];replay.disabled=false;recordButton.disabled=false;
+      status.textContent=`Recorded ${(count/ctx.sampleRate).toFixed(1)} seconds. Click Replay, then confirm whether you hear your voice.`;
+    },8000);
+  }catch(error){
+    const devices=await navigator.mediaDevices.enumerateDevices();
+    status.textContent=error.name+': '+error.message+'; audio inputs visible: '+devices.filter(d=>d.kind==='audioinput').length;
+    recordButton.disabled=false;
+    stopCapture();
+  }
+};
+replay.onclick=async()=>{
+  playing?.stop();await ctx.resume();playing=ctx.createBufferSource();playing.buffer=recording;
+  const replayGain=ctx.createGain();replayGain.gain.value=Math.min(2,Math.max(.5,Number(document.querySelector('#replay-level').value)));
+  playing.connect(replayGain);replayGain.connect(ctx.destination);playing.onended=()=>replayGain.disconnect();
+  playing.start();confirm.disabled=false;status.textContent='Replaying your recording. You can replay again before confirming.';
+};
+async function finish(ok){
+  stopCapture();playing?.stop();
+  await fetch('/result',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({ok,voice_confirmed:ok,...metrics})});
+  recording=null;samples=[];await ctx?.close();replay.disabled=true;confirm.disabled=true;
+  status.textContent='Result saved; recording cleared. You can close this tab.';
+}
+confirm.onclick=()=>finish(true);document.querySelector('#failed').onclick=()=>finish(false);
+window.addEventListener('pagehide',()=>{stopCapture();ctx?.close();});
+</script>

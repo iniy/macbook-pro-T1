@@ -57,9 +57,11 @@ fi
 systemd-analyze verify --man=no /etc/systemd/system/macbook-t1-touchbar.service
 udevadm verify /etc/udev/rules.d/90-macbook-t1-touchbar.rules
 echo 'PASS systemd service and udev rule validation'
-if bash install-ubuntu.sh > "$TMP/repeated" 2>&1; then echo 'ERROR: overwrote transaction'; exit 1; fi
-grep -q 'Existing installation/transaction' "$TMP/repeated"
-echo 'PASS repeat install safely refused'
+sha256sum /etc/modprobe.d/macbook-t1-touchbar.conf > "$TMP/before-repeat"
+bash install-ubuntu.sh > "$TMP/repeated" 2>&1
+grep -q 'already installed' "$TMP/repeated"
+sha256sum --check "$TMP/before-repeat"
+echo 'PASS repeat install preserves the matching installation'
 bash uninstall-ubuntu.sh
 [[ ! -e /etc/modprobe.d/macbook-t1-touchbar.conf ]]
 [[ ! -e /etc/systemd/system/macbook-t1-touchbar.service ]]
