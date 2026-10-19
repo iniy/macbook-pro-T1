@@ -1,0 +1,16 @@
+--- a/apple-ib-drv/dkms.conf
++++ b/apple-ib-drv/dkms.conf
+@@ -1,9 +1,10 @@
+-PACKAGE_NAME="apple-ib-drv"
+-PACKAGE_VERSION="0.1"
++PACKAGE_NAME="macbook-t1-touchbar"
++PACKAGE_VERSION="1.0.0"
+ BUILT_MODULE_NAME[0]="apple-ibridge"
+ DEST_MODULE_LOCATION[0]="/updates"
+ BUILT_MODULE_NAME[1]="apple-touchbar"
+ DEST_MODULE_LOCATION[1]="/updates"
+-MAKE[0]="make KVERSION=${kernelver}"
++MAKE[0]="make KVERSION=${kernelver} CC=x86_64-linux-gnu-gcc"
+ CLEAN="make clean KVERSION=${kernelver}"
+ AUTOINSTALL="yes"
++BUILD_EXCLUSIVE_KERNEL="^7[.]3[.]0-[0-9]+-generic$"

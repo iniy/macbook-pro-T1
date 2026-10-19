@@ -1,0 +1,23 @@
+# Local build environments, audit checkouts and credentials
+/build-env/
+/.venv/
+/sources/
+/logs/
+/reports/macos-setup.txt
+/reports/research/*.json
+
+# Editor, Python and kernel-build output
+.DS_Store
+__pycache__/
+*.py[cod]
+*.o
+*.ko
+*.ko.xz
+*.ko.zst
+*.ko.gz
+*.mod
+*.mod.c
+.*.cmd
+Module.symvers
+modules.order
+.tmp_versions/

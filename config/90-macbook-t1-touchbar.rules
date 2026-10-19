@@ -1,0 +1,3 @@
+# T1-only configuration 1 exposes HID controls and the UVC webcam.
+ACTION=="add", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="05ac", ATTR{idProduct}=="8600", ATTR{bConfigurationValue}!="1", ATTR{bConfigurationValue}="1"
+ACTION=="add", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="05ac", ATTR{idProduct}=="8600", TEST=="power/control", ATTR{power/control}="on"

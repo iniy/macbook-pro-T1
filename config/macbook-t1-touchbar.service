@@ -1,0 +1,14 @@
+[Unit]
+Description=T1 Touch Bar guarded HID binding (MacBookPro13,2)
+After=local-fs.target systemd-udev-trigger.service
+ConditionPathExists=/sys/class/dmi/id/product_name
+ConditionKernelCommandLine=!t1_touchbar.disable=1
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/macbook-t1-touchbar/activate.sh
+RemainAfterExit=yes
+TimeoutStartSec=30
+
+[Install]
+WantedBy=multi-user.target

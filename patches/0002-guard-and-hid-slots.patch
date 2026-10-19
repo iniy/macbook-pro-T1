@@ -1,0 +1,89 @@
+--- a/apple-ib-drv/apple-ibridge.c
++++ b/apple-ib-drv/apple-ibridge.c
+@@ -71,19 +71,19 @@
+  * stays valid) on affected hardware.
+  *
+  * Tri-state so the *safe* behaviour is the default and lives in the driver itself, not
+- * only in /etc/modprobe.d (which a bare insmod / source build / removed conf would miss):
+- *   -1 (auto, default) — skip on the T1 Touch Bar family (MacBookPro13,x and 14,x), and
++	 * only in /etc/modprobe.d (which a bare insmod / source build / removed conf would miss):
++ *   -1 (upstream auto) — skip on the T1 Touch Bar family (MacBookPro13,x and 14,x), and
+  *                        also skip if the DMI product name can't be read (fail safe — this
+  *                        driver only binds the T1 iBridge, so skipping is never unsafe).
+  *    0 (force-run)     — run SOCW like upstream. THIS CAN HARD-FREEZE A T1; opt-in only.
+- *    1 (force-skip)    — always skip (what the installer's modprobe.conf sets, belt-and-
+- *                        suspenders on top of the auto default).
++ *    1 (force-skip)    — always skip. This distribution defaults to 1 and rejects all
++ *                        other values in probe, before any ACPI operation.
+  */
+-static int skip_acpi_power = -1;
++/* This distribution requires the freeze guard, including direct insmod. */
++static int skip_acpi_power = 1;
+ module_param(skip_acpi_power, int, 0444);
+ MODULE_PARM_DESC(skip_acpi_power,
+-		"Skip the ASOC.SOCW iBridge power AML (T1 hard-lock workaround): "
+-		"-1=auto (skip on MacBookPro13,*/14,*), 0=force-run (can freeze!), 1=force-skip");
++		"Skip ASOC.SOCW iBridge power AML; this build requires 1 (default)");
+ 
+ /*
+  * Decide whether to skip the SOCW AML. Explicit 0/1 always win; -1 means "auto" — skip on
+@@ -142,8 +142,10 @@
+ 	int i;
+ 
+ 	for (i = 0; i < ARRAY_SIZE(hdev_info->sub_hdevs); i++) {
+-		if (READ_ONCE(hdev_info->sub_open[i]))
+-			hid_input_report(hdev_info->sub_hdevs[i], report->type,
++		struct hid_device *sub_hdev = READ_ONCE(hdev_info->sub_hdevs[i]);
++
++		if (sub_hdev && READ_ONCE(hdev_info->sub_open[i]))
++			hid_input_report(sub_hdev, report->type,
+ 					 data, size, 0);
+ 	}
+ 
+@@ -294,16 +296,12 @@
+ 	int i;
+ 
+ 	for (i = 0; i < ARRAY_SIZE(hdev_info->sub_hdevs); i++) {
+-		/*
+-		 * hid_hw_open(), and hence appleib_ll_open(), is called
+-		 * from the driver's probe function, which in turn is called
+-		 * while adding the sub-hdev; but at this point we haven't yet
+-		 * added the sub-hdev to our list. So if we don't find the
+-		 * sub-hdev in our list assume it's in the process of being
+-		 * added and set the flag on the first unset sub-hdev.
++		/* hid_add_device() can open a child before it is published.
++		 * Use its assigned ID, not the first empty slot: ALS can be
++		 * discovered before Touch Bar, but occupies slot 1, not slot 0.
+ 		 */
+-		if (hdev_info->sub_hdevs[i] == hdev ||
+-		    !hdev_info->sub_hdevs[i]) {
++		if (hdev->vendor == appleib_sub_hid_ids[i].vendor &&
++		    hdev->product == appleib_sub_hid_ids[i].product) {
+ 			WRITE_ONCE(hdev_info->sub_open[i], open);
+ 			return 0;
+ 		}
+@@ -460,8 +458,9 @@
+ 		dev_id = appleib_find_dev_id_for_usage(usage);
+ 
+ 		if (!dev_id) {
+-			hid_warn(hdev, "Unknown collection encountered with usage %x\n",
+-				 usage);
++			if (hdev->collection[i].type == HID_COLLECTION_APPLICATION)
++				hid_warn(hdev, "Unknown application collection usage %x\n",
++					 usage);
+ 			continue;
+ 		}
+ 
+@@ -615,6 +614,12 @@
+ 	struct appleib_device *ib_dev;
+ 	int ret;
+ 
++	/* Reject overrides before obtaining or executing any ACPI method. */
++	if (skip_acpi_power != 1) {
++		dev_err(&pdev->dev, "This build requires skip_acpi_power=1\n");
++		return -EINVAL;
++	}
++
+ 	ib_dev = appleib_alloc_device(pdev);
+ 	if (IS_ERR(ib_dev))
+ 		return PTR_ERR(ib_dev);

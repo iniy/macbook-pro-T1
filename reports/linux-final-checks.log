@@ -1,0 +1,2 @@
+PASS actual probe/suspend/resume: overrides rejected; skip=1 executes zero ACPI methods; ASan/UBSan
+PASS patches reverse to pinned upstream SHA256s and reapply byte-for-byte

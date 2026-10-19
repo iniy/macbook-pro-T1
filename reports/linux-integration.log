@@ -1,0 +1,45 @@
+PASS unsupported hardware rejected before writes
+Creating symlink /var/lib/dkms/macbook-t1-touchbar/1.0.0/source -> /usr/src/macbook-t1-touchbar-1.0.0
+Sign command: /usr/bin/kmodsign
+Signing key: /var/lib/macbook-t1-signing/MOK.priv
+Public certificate (MOK): /var/lib/macbook-t1-signing/MOK.der
+
+Building module(s).... done.
+Signing module /var/lib/dkms/macbook-t1-touchbar/1.0.0/build/apple-ibridge.ko
+Signing module /var/lib/dkms/macbook-t1-touchbar/1.0.0/build/apple-touchbar.ko
+Installing /lib/modules/7.3.0-9-generic/updates/dkms/apple-ibridge.ko.zst
+Installing /lib/modules/7.3.0-9-generic/updates/dkms/apple-touchbar.ko.zst
+Running depmod.... done.
+Created symlink '/etc/systemd/system/multi-user.target.wants/macbook-t1-touchbar.service' -> '/etc/systemd/system/macbook-t1-touchbar.service'.
+update-initramfs: Generating /boot/initrd.img-7.3.0-9-generic
+Installed. Reboot Ubuntu, then run: sudo ./verify-ubuntu.sh
+Physical Touch Bar operation has not yet been verified. Rollback: sudo ./uninstall-ubuntu.sh
+PASS install, DKMS build/sign/install and initramfs
+macbook-t1-touchbar/1.0.0, 7.3.0-9-generic, x86_64: installed
+enabled
+PASS installer did not load modules
+PASS module signature verified against the specified certificate
+Module signature verification failed: CalledProcessError
+Module signature verification failed: CalledProcessError
+PASS signature verifier accepts actual DKMS signature and rejects tampering/wrong certificate
+/usr/lib/systemd/system/xfs_scrub_all.service:26: Support for option CPUAccounting= has been removed and it is ignored
+/usr/lib/systemd/system/system-xfs_scrub.slice:15: Support for option CPUAccounting= has been removed and it is ignored
+
+1 udev rules files have been checked.
+  Success: 1
+  Fail:    0
+PASS systemd service and udev rule validation
+PASS repeat install safely refused
+Module macbook-t1-touchbar/1.0.0 for kernel 7.3.0-9-generic (x86_64):
+Before uninstall, this module version was ACTIVE on this kernel.
+Deleting /lib/modules/7.3.0-9-generic/updates/dkms/apple-ibridge.ko.zst
+Deleting /lib/modules/7.3.0-9-generic/updates/dkms/apple-touchbar.ko.zst
+Running depmod.... done.
+
+Deleting module macbook-t1-touchbar/1.0.0 completely from the DKMS tree.
+update-initramfs: Generating /boot/initrd.img-7.3.0-9-generic
+Removed. Original configurations restored; logs/backups: /var/lib/macbook-t1-ubuntu-removed-20261018T181339Z-17928
+Reboot to finish; no live USB reset or driver unload was performed.
+PASS uninstall removes owned DKMS, source, configs, service and initramfs references
+No owned installation to remove.
+PASS repeat uninstall harmless

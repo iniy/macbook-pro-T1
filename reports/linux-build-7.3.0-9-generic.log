@@ -1,0 +1,23 @@
+make -C /lib/modules/7.3.0-9-generic/build M=/home/builder/t1-package/driver modules
+make[1]: Entering directory '/usr/src/linux-headers-7.3.0-9-generic'
+make[2]: Entering directory '/home/builder/t1-package/driver'
+warning: the compiler differs from the one used to build the kernel
+  The kernel was built by: x86_64-linux-gnu-gcc (Ubuntu 15.3.0-4ubuntu1) 15.3.0
+  You are using:           gcc (Ubuntu 15.3.0-4ubuntu1) 15.3.0
+warning: pahole version differs from the one used to build the kernel
+  The kernel was built with: 131
+  You are using:             0
+  CC [M]  apple-ibridge.o
+  CC [M]  apple-touchbar.o
+  MODPOST Module.symvers
+  CC [M]  apple-ibridge.mod.o
+  CC [M]  .module-common.o
+  CC [M]  apple-touchbar.mod.o
+  LD [M]  apple-ibridge.ko
+  BTF [M] apple-ibridge.ko
+Skipping BTF generation for apple-ibridge.ko due to unavailability of vmlinux
+  LD [M]  apple-touchbar.ko
+  BTF [M] apple-touchbar.ko
+Skipping BTF generation for apple-touchbar.ko due to unavailability of vmlinux
+make[2]: Leaving directory '/home/builder/t1-package/driver'
+make[1]: Leaving directory '/usr/src/linux-headers-7.3.0-9-generic'

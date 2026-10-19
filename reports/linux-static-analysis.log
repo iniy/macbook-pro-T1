@@ -1,0 +1,102 @@
+make: Entering directory '/home/builder/t1-package/driver'
+make -C /lib/modules/7.3.0-9-generic/build M=/home/builder/t1-package/driver clean
+make[1]: Entering directory '/usr/src/linux-headers-7.3.0-9-generic'
+make[2]: Entering directory '/home/builder/t1-package/driver'
+  CLEAN   Module.symvers
+make[2]: Leaving directory '/home/builder/t1-package/driver'
+make[1]: Leaving directory '/usr/src/linux-headers-7.3.0-9-generic'
+make: Leaving directory '/home/builder/t1-package/driver'
+make: Entering directory '/tmp/tmp.CCT47jRdMZ'
+make -C /lib/modules/7.3.0-9-generic/build M=/tmp/tmp.CCT47jRdMZ modules
+make[1]: Entering directory '/usr/src/linux-headers-7.3.0-9-generic'
+make[2]: Entering directory '/tmp/tmp.CCT47jRdMZ'
+warning: pahole version differs from the one used to build the kernel
+  The kernel was built with: 131
+  You are using:             0
+  CC [M]  apple-ibridge.o
+  CC [M]  apple-touchbar.o
+  MODPOST Module.symvers
+  CC [M]  apple-ibridge.mod.o
+  CC [M]  .module-common.o
+  CC [M]  apple-touchbar.mod.o
+  LD [M]  apple-ibridge.ko
+  BTF [M] apple-ibridge.ko
+Skipping BTF generation for apple-ibridge.ko due to unavailability of vmlinux
+  LD [M]  apple-touchbar.ko
+  BTF [M] apple-touchbar.ko
+Skipping BTF generation for apple-touchbar.ko due to unavailability of vmlinux
+make[2]: Leaving directory '/tmp/tmp.CCT47jRdMZ'
+make[1]: Leaving directory '/usr/src/linux-headers-7.3.0-9-generic'
+make: Leaving directory '/tmp/tmp.CCT47jRdMZ'
+make: Entering directory '/tmp/tmp.CCT47jRdMZ'
+make -C /lib/modules/7.3.0-9-generic/build M=/tmp/tmp.CCT47jRdMZ modules
+make[1]: Entering directory '/usr/src/linux-headers-7.3.0-9-generic'
+make[2]: Entering directory '/tmp/tmp.CCT47jRdMZ'
+warning: pahole version differs from the one used to build the kernel
+  The kernel was built with: 131
+  You are using:             0
+  CC [M]  apple-ibridge.o
+  CHECK   apple-ibridge.c
+  CC [M]  apple-touchbar.o
+  CHECK   apple-touchbar.c
+  MODPOST Module.symvers
+  CC [M]  apple-ibridge.mod.o
+  CC [M]  .module-common.o
+  LD [M]  apple-ibridge.ko
+  BTF [M] apple-ibridge.ko
+Skipping BTF generation for apple-ibridge.ko due to unavailability of vmlinux
+  CC [M]  apple-touchbar.mod.o
+  LD [M]  apple-touchbar.ko
+  BTF [M] apple-touchbar.ko
+Skipping BTF generation for apple-touchbar.ko due to unavailability of vmlinux
+make[2]: Leaving directory '/tmp/tmp.CCT47jRdMZ'
+make[1]: Leaving directory '/usr/src/linux-headers-7.3.0-9-generic'
+make: Leaving directory '/tmp/tmp.CCT47jRdMZ'
+filename:       /tmp/tmp.CCT47jRdMZ/apple-ibridge.ko
+license:        GPL
+description:    Apple iBridge driver
+author:         Ronald Tschalär
+srcversion:     495CE8646B84AF392A459B2
+alias:          acpi*:APP7777:*
+depends:        hid
+name:           apple_ibridge
+retpoline:      Y
+vermagic:       7.3.0-9-generic SMP preempt mod_unload modversions 
+parm:           skip_acpi_power:Skip ASOC.SOCW iBridge power AML; this build requires 1 (default) (int)
+filename:       /tmp/tmp.CCT47jRdMZ/apple-touchbar.ko
+license:        GPL
+description:    MacBookPro Touch Bar driver
+author:         Ronald Tschalär
+srcversion:     60828F8B93A7B64AE62358B
+alias:          hid:b0003g*v000005ACp00008302
+alias:          hid:b0003g*v000005ACp00008102
+alias:          hid:b0003g*v00001D6Bp00000301
+depends:        hid
+name:           apple_touchbar
+retpoline:      Y
+vermagic:       7.3.0-9-generic SMP preempt mod_unload modversions 
+parm:           idle_timeout:Default touch bar idle timeout:
+    [>0] - turn touch bar display off after no keyboard, trackpad, or touch bar input has been received for this many seconds;
+         the display will be turned back on as soon as new input is received
+     0 - turn touch bar display off (input does not turn it on again)
+    -1 - turn touch bar display on (does not turn off automatically)
+    -2 - disable touch bar completely (int)
+parm:           dim_timeout:Default touch bar dim timeout:
+    >0 - dim touch bar display after no keyboard, trackpad, or touch bar input has been received for this many seconds
+         the display will be returned to full brightness as soon as new input is received
+     0 - dim touch bar display (input does not return it to full brightness)
+    -1 - disable timeout (touch bar never dimmed)
+    [-2] - calculate timeout based on idle-timeout (int)
+parm:           fnmode:Default Fn key mode:
+    0 - function-keys only
+    [1] - fn key switches from special to function-keys
+    2 - inverse of 1
+    3 - special keys only
+    4 - escape key only (int)
+.Preserving later edit: /etc/modprobe.d/macbook-t1-touchbar.conf
+...
+----------------------------------------------------------------------
+Ran 4 tests in 0.014s
+
+OK
+PASS actual HID slot functions: ALS-first, pre-publication, close, unknown ID; ASan/UBSan

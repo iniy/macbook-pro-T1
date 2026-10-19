@@ -1,0 +1,31 @@
+{
+  "os": "ProductName:\tmacOS\nProductVersion:\t12.7.6\nBuildVersion:\t21H1320",
+  "architecture": "x86_64",
+  "hw.model": "MacBookPro13,2",
+  "hw.memsize": "8589934592",
+  "machdep.cpu.brand_string": "Intel(R) Core(TM) i5-6267U CPU @ 2.90GHz",
+  "firmware": {
+    "boot_rom_version": "529.120.1.0.0",
+    "os_loader_version": "540.120.3~37",
+    "ibridge_build": "14Y910",
+    "ibridge_model_name": "Apple T1 Security Chip"
+  },
+  "t1_usb": [
+    {
+      "idVendor": 1452,
+      "idProduct": 34304,
+      "bcdDevice": 257,
+      "bDeviceClass": 239,
+      "bDeviceSubClass": 2,
+      "bDeviceProtocol": 1,
+      "bNumConfigurations": 3,
+      "USB Product Name": "Apple T1 Controller",
+      "USB Vendor Name": "Apple Inc."
+    }
+  ],
+  "sip": "System Integrity Protection status: disabled.",
+  "gatekeeper": "assessments enabled",
+  "filevault": "FileVault is On.",
+  "boot_args": "present; value deliberately omitted",
+  "collection_policy": "Only allowlisted fields saved. No serials, UUIDs, NVRAM dump, user names or disk identities."
+}

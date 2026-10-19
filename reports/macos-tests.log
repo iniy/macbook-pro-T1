@@ -1,0 +1,14 @@
+PASS bash syntax: 11 scripts/configs
+PASS all Ubuntu entrypoints reject macOS before changes
+PASS Python syntax
+.Preserving later edit: /etc/modprobe.d/macbook-t1-touchbar.conf
+...
+----------------------------------------------------------------------
+Ran 4 tests in 0.044s
+
+OK
+PASS actual HID slot functions: ALS-first, pre-publication, close, unknown ID; ASan/UBSan
+PASS actual probe/suspend/resume: overrides rejected; skip=1 executes zero ACPI methods; ASan/UBSan
+PASS patches reverse to pinned upstream SHA256s and reapply byte-for-byte
+PASS kernel family/flavor boundary checks
+PASS DKMS signing selection is scoped and cleared for the next module

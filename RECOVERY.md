@@ -1,0 +1,126 @@
+# Recovery and rollback
+
+## Normal removal or interrupted installation
+
+From the copied package on Ubuntu:
+
+```bash
+sudo ./uninstall-ubuntu.sh
+```
+
+Reboot normally. Removal disables only this package's service, removes its DKMS
+registration/modules, restores backed-up configuration, and refreshes initramfs.
+It does not unload live modules or reset the shared USB device. Dependency packages
+installed through apt and `/var/lib/macbook-t1-signing` are retained. That root-only
+directory contains a signing key/certificate or links to an existing Ubuntu key.
+
+A failed install attempts the same owned-file rollback and retains diagnostics in
+`/var/lib/macbook-t1-ubuntu`. Run the uninstaller to complete/acknowledge rollback
+before retrying. Look at `build.log`, `install.log`, and `files.json` there.
+
+If a configuration was edited after installation, restoration stops and preserves
+it. `files.json` lists the unresolved paths; `backups/` contains original files.
+Save the edited file under a different name, then rerun the uninstaller to restore
+the original (or remove the package-created file). Never delete all of
+`/etc/modprobe.d`, `/etc/udev/rules.d`, or unrelated DKMS packages.
+
+## Ubuntu hangs during boot
+
+In GRUB, select an entry and press `e`. Append this to its `linux` line for one boot:
+
+```text
+module_blacklist=apple_ibridge,apple_touchbar t1_touchbar.disable=1
+```
+
+Boot with Ctrl-X/F10. Kernel `module_blacklist` also blocks explicit loads; the
+second parameter prevents this package's service from running. Once booted, run
+the uninstaller. Alternatively select a previously working kernel under GRUB's
+Advanced options. These instructions concern a future Ubuntu recovery boot.
+
+If normal boot is unavailable, use Ubuntu recovery mode or a live environment and
+an appropriately mounted/chrooted Ubuntu root, then remove this package. Disk
+selection/mounting is deliberately not automated. Never repartition or format to
+recover a driver installation.
+
+## Touch Bar dark, absent, or broken after sleep
+
+1. Run `sudo ./verify-ubuntu.sh`. Check for USB **05ac:8600**, configuration **1**,
+   `skip_acpi_power=1`, physical HID ownership, and a virtual **1d6b:0301** input.
+2. Inspect the local service error with
+   `sudo journalctl -b -u macbook-t1-touchbar.service --no-hostname`.
+   Raw logs can contain identifiers; review/redact them before sharing.
+3. If initialization failed at boot, a normal reboot is preferable to a live
+   whole-device unbind. The late-boot service can be retried with
+   `sudo systemctl restart macbook-t1-touchbar.service`; it only claims missing
+   HID bindings and **does not guarantee relighting an already-bound dark bar**.
+4. For failed sleep recovery, save work and reboot. Avoid further suspend cycles
+   until tested. There is no supported ACPI-based wake workaround in this package.
+5. If the T1 is in recovery mode (`05ac:1281`) or missing, shut down normally,
+   leave the machine off for at least 15 seconds, then boot again. If available,
+   boot the preserved macOS installation and confirm the Touch Bar there first.
+
+**Never use `skip_acpi_power=0`, `ASOC.SOCW(1)`, `ASOC.FRST`, ACPI-call hooks, or
+firmware flashing to force this driver to load.** This build rejects a disabled
+guard. A timeout around a userspace command cannot interrupt a kernel AML hang.
+Do not authorize/deauthorize or unbind the entire iBridge as a routine recovery:
+the webcam shares that device.
+
+T1 initialization depends on Apple's existing firmware resources, commonly under
+`EFI/APPLE/EMBEDDEDOS`. Their presence on this disk was not audited or changed.
+This package cannot recreate missing firmware or identity/calibration data.
+
+## Secure Boot / signature enforcement
+
+The installer reads Secure Boot, kernel lockdown and signature-enforcement state.
+On older Apple EFI without a SecureBoot variable, absence is accepted only when
+efivarfs is mounted and mokutil specifically reports that variable missing.
+Unreadable/ambiguous state causes failure.
+
+DKMS signs through a module-scoped framework drop-in. It reuses an existing Ubuntu
+key when available, otherwise creates a root-only local key without enrollment.
+This avoids DKMS 3.2's implicit `update-secureboot-policy --enroll-key` fallback.
+If signatures are enforced, the
+installer requires an **already enrolled** certificate and cryptographically
+verifies each built module's PKCS#7 signature against it. Pending enrollment is not accepted.
+It never changes EFI/NVRAM or disables signature validation.
+
+If enrollment is needed, stop and obtain explicit approval for that EFI change.
+The certificate path is printed by DKMS in the retained `build.log` (usually
+`/var/lib/macbook-t1-signing/MOK.der`, possibly a link to an existing Ubuntu key).
+After approval, use
+Ubuntu's normal MOK enrollment procedure for **that certificate**, reboot through
+shim/MokManager to confirm it, check `mokutil --test-key <certificate>`, then rerun
+installation after clearing the failed transaction with the uninstaller.
+Signing/enrollment under actual Secure Boot has not been hardware-tested here.
+
+## Kernel updates / conflicts
+
+If special keys work but Fn does not, inspect keyboard remappers such as keyd,
+kanata or input-remapper. An exclusive grab of the Apple SPI keyboard prevents
+the driver seeing `KEY_FN`; this is reported upstream. Resolve that remapping
+deliberately rather than replacing the keyboard driver. No remapper is disabled
+automatically by this package.
+
+For a supported 7.3.0 generic ABI:
+
+```bash
+sudo apt install "linux-headers-$(uname -r)"
+sudo dkms autoinstall -k "$(uname -r)"
+sudo ./verify-ubuntu.sh
+```
+
+If the kernel is outside `7.3.0-*-generic`, use the previous kernel while obtaining
+an audited update. DKMS's exclusive-kernel rule may skip such an update; it is not
+a promise of compatibility. Build logs are under
+`/var/lib/dkms/macbook-t1-touchbar/1.0.0/`.
+
+Existing apple-ib-drv/apple-touchbar/mbp-t1-touchbar packages, old Touch Bar boot
+configuration, or active tiny-dfr/t1bar services must be resolved using their own
+uninstall instructions. Review any old uninstaller before running it; some remove
+unrelated applespi packages. This package never globally blacklists `hid-generic`,
+`hid-sensor-hub`, `usbhid`, `uvcvideo` or Apple keyboard drivers.
+
+The backed-up usbmuxd override excludes only **05ac:8600**. If usbmuxd is upgraded,
+compare the vendor rule in `/usr/lib/udev/rules.d` with its `/etc` override to keep
+other device fixes current. Uninstall restores the original override or removes
+the package-created one, exposing the current vendor rule again.

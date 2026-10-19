@@ -1,0 +1,6 @@
+PASS deterministic byte-identical archive rebuild
+PASS all extracted file checksums
+PASS safe relative file-only entries and executable modes
+PASS no build environment, private keys or macOS account paths
+PASS offline upstream patch reconstruction from extracted package
+PASS extracted Ubuntu entrypoints reject macOS
