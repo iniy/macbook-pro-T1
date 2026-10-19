@@ -218,15 +218,16 @@ global USB/HID blacklists or unrelated Wi-Fi drivers were changed.
 
 ## 8. Source tests, packaging and Git
 
-Feature branch: **`feature/ubuntu-audio-camera`**. Main remains at the recorded
-base until the owner separately requests a merge. Exact upstream inputs are
-pinned above and in the source checksum manifest.
+Development branch: **`feature/ubuntu-audio-camera`**, based on the existing
+project revision recorded above. Exact upstream inputs are pinned above and in
+the source checksum manifest. The owner subsequently requested integration into
+`main` with updated unified installation documentation.
 
 Verified driver/integration implementation commit:
 **`bc5477ffbb47e04f2113bcdbe9b4859447dbbcf2`**. The feature branch was pushed
-successfully to `iniy/macbook-pro-T1`; `main` remained at the original base.
-This report and its archive checksum receive a documentation-only follow-up
-commit to record that implementation revision.
+successfully to `iniy/macbook-pro-T1`, initially leaving `main` at the original
+base. Documentation-only follow-up commits record that implementation revision
+and the unified installation instructions.
 
 The containing Git revision can be identified with
 `git log -1 --format=%H -- AUDIO-CAMERA-IMPLEMENTATION-REPORT.md`; the final

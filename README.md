@@ -1,17 +1,21 @@
 # MacBookPro13,2 Touch Bar, Audio and Camera — Ubuntu 26.10
 
-Prepared for **Ubuntu 26.10 (Stonking Stingray)**, the latest stable release on
-2026-10-18. Target: Intel **MacBookPro13,2**, Apple T1 USB **05ac:8600**,
-Ubuntu **7.3.0-*-generic** kernels. Both modules compile against **7.3.0-9-generic**.
+One project for the **Touch Bar, internal audio and FaceTime HD camera** on the
+Intel **MacBookPro13,2** (13-inch, Late 2016, Apple T1 USB **05ac:8600**).
+Tested on **Ubuntu 26.10 (Stonking Stingray)** with **7.3.0-9-generic** and
+matching **7.3.0-9.9** headers/source. DKMS builds the two Touch Bar modules and
+the custom CS8409 audio module; the camera uses Ubuntu's standard `uvcvideo`.
 
-**Physical Ubuntu operation is partially verified as of 2026-10-19.** On this
-MacBookPro13,2, both modules load and the repository verifier passes. Real
-brightness, volume and Fn-switched function-key events were captured; the user
-confirmed the lit display, Esc and F10. Individual mute/media delivery, reboot
-and sleep/wake remain unverified. See [UBUNTU-INSTALL-RESULT.md](UBUNTU-INSTALL-RESULT.md)
-for the hardware evidence and [BUILD-REPORT.md](BUILD-REPORT.md) for build validation.
+**Current result: PARTIAL — working components with remaining hardware tests.**
+Touch Bar controls, internal stereo speakers, microphone recording and the
+FaceTime HD camera have actual hardware evidence. Headphone playback/jack
+switching, post-reboot operation and suspend/resume remain unverified.
+See [AUDIO-CAMERA-IMPLEMENTATION-REPORT.md](AUDIO-CAMERA-IMPLEMENTATION-REPORT.md)
+for the complete results, [UBUNTU-INSTALL-RESULT.md](UBUNTU-INSTALL-RESULT.md)
+for the original Touch Bar installation, and [BUILD-REPORT.md](BUILD-REPORT.md)
+for build validation.
 
-## Unified installation
+## Install all components
 
 ```bash
 git clone https://github.com/iniy/macbook-pro-T1.git
@@ -19,6 +23,14 @@ cd macbook-pro-T1
 sudo ./install-ubuntu.sh --all --install-deps
 # Save work and reboot for boot-persistence validation:
 sudo reboot
+```
+
+For an existing checkout, update it and install the complete suite:
+
+```bash
+cd ~/macbook-pro-T1
+git pull --ff-only
+sudo ./install-ubuntu.sh --all --install-deps
 ```
 
 After login:
@@ -35,9 +47,19 @@ Matching completed installations are idempotent and preserve live drivers.
 The camera uses shared T1 initialization, so install Touch Bar first or use
 `--all`. A camera-only verification/removal never resets iBridge.
 
+Examples of component selection and the unified action aliases:
+
+```bash
+sudo ./install-ubuntu.sh --audio --install-deps
+sudo ./install-ubuntu.sh --touchbar --camera --install-deps
+./install-ubuntu.sh --verify --all
+```
+
+## Tested functionality
+
 | Component | Ubuntu 26.10 / 7.3.0-9-generic evidence |
 |---|---|
-| Touch Bar | Existing working driver retained; binding/guard regression checks pass |
+| Touch Bar | Existing driver preserved; software checks and user-confirmed control regressions pass |
 | Internal speakers | Left/right speech confirmed correct and clean; user confirmed normal application playback is usable |
 | 3.5 mm headphones | Supported upstream path and jack controls present; no wired headphones available for physical test |
 | Internal microphone | Actual signal captured; user confirmed browser recording; input level corrected to independent unity software gain |
@@ -82,7 +104,7 @@ layer. The hardware session found and removed a stale −26.6 dB setting while
 PipeWire was muted. Keep PipeWire software mixing enabled; avoid amplifier
 register changes or indiscriminate gain boosts.
 
-## Install after migrating to Ubuntu
+## Install from the portable archive
 
 Copy `dist/macbook-t1-ubuntu-1.0.0.tar.gz` and its `.sha256` file to Ubuntu:
 
@@ -90,34 +112,29 @@ Copy `dist/macbook-t1-ubuntu-1.0.0.tar.gz` and its `.sha256` file to Ubuntu:
 sha256sum -c macbook-t1-ubuntu-1.0.0.tar.gz.sha256
 tar -xzf macbook-t1-ubuntu-1.0.0.tar.gz
 cd macbook-t1-ubuntu
-sudo ./install-ubuntu.sh --install-deps
-```
-
-If you copied the complete project into your home directory instead:
-
-```bash
-cd ~/macbook-t1-ubuntu
-sudo ./install-ubuntu.sh --install-deps
+sudo ./install-ubuntu.sh --all --install-deps
 ```
 
 Internet access is needed only for Ubuntu build dependencies and **headers matching
 `uname -r`**. Driver source and patches are bundled; no GitHub download is required.
+Audio's initial Ubuntu HDA source subset is included; a later supported kernel
+ABI also requires its exact matching Ubuntu kernel source package.
 With dependencies already installed, omit `--install-deps` for an offline install.
 
 Then reboot normally and run:
 
 ```bash
-sudo ./verify-ubuntu.sh
+./verify-ubuntu.sh --all
 ```
 
-The installer refuses other hardware/releases/kernel families, competing Touch Bar
-packages, mismatched headers, and unresolved signature requirements. It builds for
-the running kernel; it does not substitute unrelated generic headers or load a
+The installers refuse other hardware/releases/kernel families, competing driver
+packages, mismatched headers, and unresolved signature requirements. They build for
+the running kernel; they do not substitute unrelated generic headers or load a
 module during installation. A completed matching installation is preserved on
 repeated invocation. Incomplete transactions require rollback first.
 Read [RECOVERY.md](RECOVERY.md) if it stops.
 
-## Expected functionality
+## Touch Bar behavior
 
 - Firmware-drawn Esc, brightness, media and volume keys.
 - Hold **Fn** for F1–F12; release Fn for the special-key strip (`fnmode=1`).
@@ -126,7 +143,7 @@ Read [RECOVERY.md](RECOVERY.md) if it stops.
 - Webcam remains on the standard `uvcvideo` interfaces in USB configuration 1.
 - Late-boot service claims only the T1 HID devices from `hid-generic` or
   `hid-sensor-hub`, and refuses unexpected owners.
-- DKMS rebuilds for subsequent **7.3.0-*-generic** ABI updates with matching headers.
+- Touch Bar DKMS rebuilds for subsequent **7.3.0-*-generic** ABI updates with matching headers.
 
 **Limitations:** this fork's T1 display-brightness function is a no-op. Automatic
 Touch Bar dim/off is unavailable; defaults are explicitly `idle_timeout=-1` and
@@ -140,7 +157,7 @@ but S3 wake can still leave a T1 dark. Reliable sleep recovery on **this** firmw
 must be tested. **`skip_acpi_power=1` is mandatory**, including at suspend/resume;
 this build rejects other values. Recovery never calls `SOCW` or an ACPI reset.
 
-## Verify physically
+## Touch Bar physical checks
 
 After the script reports healthy bindings, test:
 
@@ -182,15 +199,18 @@ no-selector removal remains Touch Bar-only and refuses while the camera
 component depends on it.
 
 After any kernel update, confirm headers are installed and run verification after
-booting it. New major/minor kernel families are deliberately excluded pending a
-fresh compile audit; do not assume DKMS built them. Keep a previous bootable kernel.
+booting it. Audio also requires exact matching Ubuntu HDA source; see
+[RECOVERY.md](RECOVERY.md) for the kernel-update procedure. New major/minor
+kernel families are deliberately excluded pending a fresh compile audit;
+do not assume DKMS built them. Keep a previous bootable kernel.
 
 ```bash
-sudo ./uninstall-ubuntu.sh
+sudo ./uninstall-ubuntu.sh --all
+sudo reboot
 ```
 
-Then reboot. This also serves as rollback. Backups and transaction logs are retained
-under `/var/lib/macbook-t1-ubuntu*`. Existing competing services are reported for
+Removal also serves as rollback. Component backups and transaction logs are
+retained under `/var/lib/macbook-t1-*`. Existing competing services are reported for
 resolution rather than automatically removed. A matching usbmuxd rule is given a
 backed-up, T1-only exclusion; iPhone/iPad handling is retained. Recheck that rule
 snapshot after usbmuxd upgrades.
