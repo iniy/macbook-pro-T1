@@ -76,6 +76,34 @@ class Diagnostics(unittest.TestCase):
 
 
 class Rollback(unittest.TestCase):
+    def test_settings_only_cli_never_removes_dma_driver(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            real_path = Path
+            def paths(value):
+                return real_path(tmp) / 'lock' if value == '/run/macbook-t1-wifi.lock' else real_path(value)
+            with patch.object(sys, 'argv', ['manage.py', 'uninstall', '--settings-only']), \
+                 patch.object(manage.os, 'geteuid', return_value=0), \
+                 patch.object(manage.os, 'umask'), \
+                 patch.object(manage, 'Path', side_effect=paths), patch.object(manage, 'remove') as settings, \
+                 patch.object(manage.driver, 'remove') as module:
+                manage.main()
+                settings.assert_called_once()
+                module.assert_not_called()
+
+    def test_nm_enum_names_roundtrip_to_canonical_profile_values(self):
+        for output, expected in [('default', '0'), ('disable', '2'), ('2 (disable)', '2'), ('enable', '3')]:
+            with patch.object(manage, 'run', return_value=output):
+                self.assertEqual(manage.profile_value('test-profile', '802-11-wireless.powersave'), expected)
+
+    def test_optional_bssid_roundtrip_and_clear(self):
+        # Synthetic address; never extracted from a user's network.
+        value = ':'.join(['aa'] * 6)
+        with patch.object(manage, 'run', return_value=value):
+            self.assertEqual(manage.profile_value('test-profile', '802-11-wireless.bssid'), value.upper())
+        with patch.object(manage, 'run', return_value='802-11-wireless'):
+            options = dict(profile='selected-test', powersave=None, stable_mac=None, bssid='')
+            self.assertEqual(manage.profile_changes(options), {'802-11-wireless.bssid': ''})
+
     def restore(self, current):
         with tempfile.TemporaryDirectory() as tmp:
             state = Path(tmp)

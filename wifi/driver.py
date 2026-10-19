@@ -21,7 +21,9 @@ SOURCE = Path('/usr/src') / (PACKAGE + '-' + VERSION)
 
 
 def run(*args):
-    p = subprocess.run(args, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    # Private transaction state uses 077, but depmod/DKMS must create readable
+    # public module indexes. Otherwise unprivileged modinfo/udev lookups fail.
+    p = subprocess.run(args, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, umask=0o022)
     if p.returncode:
         raise RuntimeError(f'{args[0]} failed ({p.returncode}): {p.stdout[-4000:]}')
     return p.stdout.strip()
@@ -54,7 +56,7 @@ def owned(kernel=None):
     path = module_path(kernel)
     return ('/updates/dkms/' in str(path) and
             any(line.startswith(f'{PACKAGE}/{VERSION}, {kernel},') and
-                line.endswith(': installed')
+                 re.search(r': installed(?: \(Original modules exist\))?$', line)
                 for line in run('dkms', 'status', '-m', PACKAGE, '-v', VERSION).splitlines()))
 
 

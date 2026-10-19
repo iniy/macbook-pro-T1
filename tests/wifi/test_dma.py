@@ -103,6 +103,20 @@ class Removal(unittest.TestCase):
                 self.assertFalse(driver.owned('7.3.0-9-generic'))
                 run.return_value = prefix + 'installed'
                 self.assertTrue(driver.owned('7.3.0-9-generic'))
+                run.return_value = prefix + 'installed (Original modules exist)'
+                self.assertTrue(driver.owned('7.3.0-9-generic'))
+
+    def test_private_parent_umask_does_not_hide_module_indexes(self):
+        import os
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / 'modules.dep'
+            old = os.umask(0o077)
+            try:
+                driver.run(sys.executable, '-c', 'from pathlib import Path; import sys; Path(sys.argv[1]).touch()', str(target))
+                self.assertEqual(target.stat().st_mode & 0o777, 0o644)
+                self.assertEqual(os.umask(0o077), 0o077)
+            finally:
+                os.umask(old)
 
     def test_later_source_edits_block_destructive_removal(self):
         with tempfile.TemporaryDirectory() as tmp:

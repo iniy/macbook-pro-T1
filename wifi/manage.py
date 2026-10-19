@@ -15,7 +15,7 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'lib'))
 from component_support import host, transaction
-from check import hardware, command
+from check import hardware, interface, command
 import driver
 
 STATE = Path('/var/lib/macbook-t1-wifi')
@@ -25,7 +25,8 @@ VERIFY = 'macbook-t1-wifi-verify.timer'
 
 
 def run(*args):
-    p = subprocess.run(args, capture_output=True, text=True)
+    public = args[0] in ('apt-get', 'depmod', 'dkms', 'update-initramfs')
+    p = subprocess.run(args, capture_output=True, text=True, umask=0o022 if public else -1)
     if p.returncode:
         raise RuntimeError(f'{args[0]} failed (exit {p.returncode}); inspect local service/package logs')
     return p.stdout.strip()
@@ -42,15 +43,23 @@ def country(value):
 
 def settings(args, previous=None):
     values = dict(previous or {})
-    for name in ['country', 'disable_offload', 'roamoff', 'profile', 'powersave', 'stable_mac', 'dma_fix']:
+    for name in ['country', 'disable_offload', 'roamoff', 'profile', 'powersave', 'stable_mac', 'dma_fix', 'band', 'bssid']:
         value = getattr(args, name, None)
         if value is not None:
             values[name] = value
         else:
             values.setdefault(name, None)
     country(values['country'])
-    if (values['powersave'] or values['stable_mac']) and not values['profile']:
-        raise RuntimeError('Per-connection options require --profile UUID')
+    if values['bssid']:
+        if not re.fullmatch(r'(?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}', values['bssid']):
+            raise RuntimeError('--bssid requires the actual AP address, or an empty string to clear a pin')
+        if int(values['bssid'].split(':')[0], 16) & 1 or values['bssid'] == '00:00:00:00:00:00':
+            raise RuntimeError('--bssid must identify a unicast access point')
+        values['bssid'] = values['bssid'].upper()
+    if (values['powersave'] or values['stable_mac'] or values['band'] or values['bssid'] is not None) and not values['profile']:
+        values['profile'] = run('nmcli', '-g', 'GENERAL.CON-UUID', 'device', 'show', interface(hardware()))
+        if not values['profile'] or values['profile'] == '--':
+            raise RuntimeError('No active Wi-Fi profile; specify --profile UUID')
     if values['profile'] and not re.fullmatch(r'[a-fA-F0-9]{8}(?:-[a-fA-F0-9]{4}){3}-[a-fA-F0-9]{12}', values['profile']):
         raise RuntimeError('--profile requires a connection UUID, kept only in private local state')
     return values
@@ -66,12 +75,22 @@ def profile_changes(options):
         changes['802-11-wireless.powersave'] = '2' if options['powersave'] == 'off' else '3'
     if options['stable_mac']:
         changes['802-11-wireless.cloned-mac-address'] = 'stable'
+    if options.get('band'):
+        changes['802-11-wireless.band'] = options['band']
+    if options.get('bssid') is not None:
+        changes['802-11-wireless.bssid'] = options['bssid']
     return changes
 
 
 def profile_value(uuid, key):
-    text = run('nmcli', '-g', key, 'connection', 'show', 'uuid', uuid)
-    return text.split(' ', 1)[0] if key.endswith('.powersave') else text
+    text = run('nmcli', '--escape', 'no', '-g', key, 'connection', 'show', 'uuid', uuid)
+    if key.endswith('.powersave'):
+        value = text.split(' ', 1)[0]
+        # NM versions expose either enum names or the older "N (name)" format.
+        return {'default': '0', 'ignore': '1', 'disable': '2', 'enable': '3'}.get(value, value)
+    if key.endswith('.bssid'):
+        return text.upper()
+    return text
 
 
 def change_profile(options):
@@ -128,6 +147,10 @@ def payload(options):
             'After=systemd-udev-trigger.service\n\n[Service]\nType=oneshot\nRemainAfterExit=yes\n'
             f'ExecStart=/usr/bin/python3 {PREFIX}/country.py {options["country"]}\n'
             '\n[Install]\nWantedBy=multi-user.target\n').encode()
+        files['/etc/NetworkManager/dispatcher.d/90-macbook-t1-wifi-country'] = (
+            '#!/bin/sh\n# Reapply the physical country through ordinary cfg80211 handling after association.\n'
+            '[ "$2" = up ] || exit 0\n'
+            f'exec /usr/bin/python3 {PREFIX}/country.py {options["country"]} --interface "$1"\n').encode()
     return files
 
 
@@ -176,6 +199,8 @@ def install(args):
     if (STATE / 'complete').exists():
         previous = json.loads((STATE / 'options.json').read_text())
         previous.setdefault('dma_fix', None)
+        previous.setdefault('band', None)
+        previous.setdefault('bssid', None)
         requested = settings(args, previous)
         if not unchanged():
             raise RuntimeError('Installed files/profile fields were edited; preserve/review those edits before updating')
@@ -239,6 +264,9 @@ def install(args):
                 (source / name).write_bytes(data)
                 tx.FILES[name] = destination
             tx.deploy(source, STATE, usbmux=False)
+        dispatcher = Path('/etc/NetworkManager/dispatcher.d/90-macbook-t1-wifi-country')
+        if str(dispatcher) in files:
+            dispatcher.chmod(0o755)
         change_profile(options)
         if options['disable_offload'] or options['roamoff']:
             (STATE / 'module-options').touch()
@@ -268,13 +296,20 @@ def main():
     parser.add_argument('--dma-fix', action='store_true', default=None,
                         help='Install the hardware-scoped RX DMA fix using exact-source DKMS; no live reload')
     parser.add_argument('--dma-only', action='store_true', help='With uninstall: remove only the DMA module')
+    parser.add_argument('--settings-only', action='store_true',
+                        help='With uninstall: restore settings/tools while retaining the association-critical DMA module')
     parser.add_argument('--country', help='Confirmed physical country, ISO alpha-2; no default override')
     parser.add_argument('--disable-offload', action='store_true', default=None, help='Opt-in FWSUP/SAE compatibility trial, not a default')
     parser.add_argument('--roamoff', action='store_true', default=None, help='Opt-in only for proven firmware roaming failures')
     parser.add_argument('--profile', help='Existing Wi-Fi profile UUID for targeted non-security changes')
     parser.add_argument('--powersave', choices=['on', 'off'])
+    parser.add_argument('--2ghz-only', dest='band', action='store_const', const='bg', default=None,
+                        help='Restrict the selected (or active) Wi-Fi profile to 2.4 GHz; not an RF gain fix')
+    parser.add_argument('--bssid', help='Opt-in actual AP pin only after a roaming comparison; empty string clears it')
     parser.add_argument('--stable-mac', action='store_true', default=None, help='NetworkManager-generated local per-profile address')
     args = parser.parse_args()
+    if args.dma_only and args.settings_only:
+        parser.error('--dma-only and --settings-only are mutually exclusive')
     if args.action == 'install':
         host(root=True)
     elif os.geteuid() != 0 or sys.platform != 'linux':
@@ -283,13 +318,14 @@ def main():
     with Path('/run/macbook-t1-wifi.lock').open('w') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         if args.action == 'install':
-            if args.dma_only:
-                raise RuntimeError('--dma-only is for uninstall')
+            if args.dma_only or args.settings_only:
+                raise RuntimeError('--dma-only/--settings-only are for uninstall')
             install(args)
             if json.loads((STATE / 'options.json').read_text()).get('dma_fix'):
                 driver.install(args.install_deps)
         else:
-            driver.remove()
+            if not args.settings_only:
+                driver.remove()
             if args.dma_only:
                 options_file = STATE / 'options.json'
                 if options_file.exists():
