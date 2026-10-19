@@ -3,7 +3,28 @@
 Audit date: **2026-10-18**. Package: **macbook-t1-touchbar 1.0.0**.
 Requested target updated during work to the latest stable **Ubuntu 26.10**.
 
-## Results by environment
+## Physical Ubuntu follow-up — 2026-10-19
+
+The package was installed and activated on the target MacBookPro13,2 with
+Ubuntu 26.10 Desktop and kernel/headers 7.3.0-9-generic. Two installer adaptations
+retain Desktop's dracut provider and recognize this Apple EFI's unsupported
+Secure Boot message while retaining EFI-storage and kernel-enforcement checks.
+Regression tests cover both adaptations; driver C source is unchanged.
+
+DKMS build/sign/install, cryptographic module-signature verification, installed
+unit/rule validation, live HID binding and `verify-ubuntu.sh` passed.
+`skip_acpi_power=1` was verified in sysfs and the kernel log. Real brightness,
+volume, keyboard-illumination and Fn-held F1–F9/F11/F12 events were captured;
+the user confirmed the lit display, Fn layout switching, Esc and F10.
+Individual mute/media delivery, reboot and sleep/wake remain unverified.
+
+Outcome: **PARTIAL**. Full evidence and recovery details are in
+[UBUNTU-INSTALL-RESULT.md](UBUNTU-INSTALL-RESULT.md).
+
+The following sections retain the original 2026-10-18 build-audit record;
+their physical-test status describes that earlier audit.
+
+## Original results by environment — 2026-10-18
 
 | Category | Result |
 |---|---|

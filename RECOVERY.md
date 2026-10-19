@@ -73,8 +73,13 @@ This package cannot recreate missing firmware or identity/calibration data.
 
 The installer reads Secure Boot, kernel lockdown and signature-enforcement state.
 On older Apple EFI without a SecureBoot variable, absence is accepted only when
-efivarfs is mounted and mokutil specifically reports that variable missing.
+efivarfs is mounted/readable and mokutil specifically reports that variable
+missing or reports "This system doesn't support Secure Boot". The SecureBoot
+variable must be absent in either case; kernel enforcement is checked separately.
 Unreadable/ambiguous state causes failure.
+
+On Ubuntu 26.10 Desktop, the installer retains the installed dracut provider
+and uses its distribution-supplied `update-initramfs` compatibility command.
 
 DKMS signs through a module-scoped framework drop-in. It reuses an existing Ubuntu
 key when available, otherwise creates a root-only local key without enrollment.

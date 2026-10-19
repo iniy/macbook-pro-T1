@@ -27,9 +27,15 @@ supported_kernel "$KERNEL" || die "Unsupported kernel $KERNEL; this package targ
 [[ -d /run/systemd/system ]] || die 'Requires a normally booted systemd Ubuntu installation.'
 [[ ! -e $STATE && ! -L $STATE ]] || die "Existing installation/transaction at $STATE. Run verify-ubuntu.sh or uninstall-ubuntu.sh first."
 if [[ $deps == 1 ]]; then
+    # Ubuntu 26.10 Desktop ships dracut with an update-initramfs wrapper.
+    # Preserve the installed initramfs provider instead of replacing it.
+    initramfs_package=initramfs-tools
+    if [[ $(dpkg-query -W -f='${db:Status-Status}' dracut 2>/dev/null || true) == installed ]]; then
+        initramfs_package=dracut
+    fi
     apt-get update
-    apt-get install -y build-essential dkms "linux-headers-$KERNEL" \
-        mokutil openssl kmod python3 usbutils initramfs-tools zstd
+    apt-get install --no-remove -y build-essential dkms "linux-headers-$KERNEL" \
+        mokutil openssl kmod python3 usbutils "$initramfs_package" zstd
 fi
 for tool in dkms make x86_64-linux-gnu-gcc python3 modinfo modprobe depmod mokutil openssl \
             systemctl udevadm update-initramfs flock sha256sum findmnt zstd; do
@@ -60,10 +66,11 @@ if [[ -d /sys/firmware/efi ]]; then
     case "$sb" in
         *'SecureBoot enabled'*) [[ $sb_rc == 0 ]] || die 'Secure Boot query failed.'; SIGN_REQUIRED=1 ;;
         *'SecureBoot disabled'*) [[ $sb_rc == 0 ]] || die 'Secure Boot query failed.' ;;
-        *'Failed to read "SecureBoot" variable: No such file or directory'*)
+        *'Failed to read "SecureBoot" variable: No such file or directory'*|"This system doesn't support Secure Boot")
             # Older Apple EFI lacks the UEFI Secure Boot variable. Confirm
             # efivarfs is actually mounted before treating ENOENT as absence.
             [[ $(findmnt -n -o FSTYPE --target /sys/firmware/efi/efivars) == efivarfs ]] || die 'EFI variable storage unavailable.'
+            [[ -r /sys/firmware/efi/efivars && -x /sys/firmware/efi/efivars ]] || die 'EFI variable storage unreadable.'
             [[ ! -e /sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c ]] || die 'SecureBoot variable exists but cannot be read.'
             echo 'Apple EFI has no SecureBoot variable; checking kernel signature enforcement separately.' ;;
         *) die 'Unrecognized Secure Boot state; refusing installation.' ;;

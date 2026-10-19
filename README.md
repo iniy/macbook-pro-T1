@@ -4,9 +4,12 @@ Prepared for **Ubuntu 26.10 (Stonking Stingray)**, the latest stable release on
 2026-10-18. Target: Intel **MacBookPro13,2**, Apple T1 USB **05ac:8600**,
 Ubuntu **7.3.0-*-generic** kernels. Both modules compile against **7.3.0-9-generic**.
 
-**Physical Ubuntu operation on this Mac is still unverified.** This is a prepared,
-build-tested driver package, not a claim that display, keys or sleep already work.
-See [BUILD-REPORT.md](BUILD-REPORT.md) for the evidence and remaining tests.
+**Physical Ubuntu operation is partially verified as of 2026-10-19.** On this
+MacBookPro13,2, both modules load and the repository verifier passes. Real
+brightness, volume and Fn-switched function-key events were captured; the user
+confirmed the lit display, Esc and F10. Individual mute/media delivery, reboot
+and sleep/wake remain unverified. See [UBUNTU-INSTALL-RESULT.md](UBUNTU-INSTALL-RESULT.md)
+for the hardware evidence and [BUILD-REPORT.md](BUILD-REPORT.md) for build validation.
 
 ## Install after migrating to Ubuntu
 

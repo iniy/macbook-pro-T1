@@ -9,7 +9,8 @@ import tarfile
 ROOT = Path(__file__).resolve().parents[1]
 VERSION = '1.0.0'
 FILES = ['install-ubuntu.sh', 'verify-ubuntu.sh', 'uninstall-ubuntu.sh',
-         'README.md', 'BUILD-REPORT.md', 'RECOVERY.md', 'LICENSE', 'SOURCES.md']
+         'README.md', 'BUILD-REPORT.md', 'RECOVERY.md', 'LICENSE', 'SOURCES.md',
+         'UBUNTU-INSTALL-RESULT.md']
 DIRS = ['driver', 'patches', 'lib', 'config', 'tests']
 TOOLS = ['tools/package.py', 'tools/capture-macos.py', 'tools/validate-linux.sh',
          'tools/test-macos.py', 'tools/prepare-vm.py', 'tools/run-vm.sh',
