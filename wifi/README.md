@@ -1,11 +1,21 @@
 # BCM43602 Wi-Fi component
 
 **Experimental integration; reliable dual-band operation is not yet established.**
-See [the measured implementation report](../WIFI-IMPLEMENTATION-REPORT.md).
+See [the current root-cause report](../WIFI-ROOT-CAUSE-REPORT.md) and
+[benchmarks](../WIFI-BENCHMARKS.md). The earlier implementation report is
+historical evidence from before the DMA fix.
 
 Validated detection target: MacBookPro13,2, Apple BCM43602 revision 2,
 PCI `14e4:43ba`, subsystem `106b:0157`, Ubuntu 26.10, stock
 `7.3.0-9-generic` brcmfmac. Other models/releases are not claimed supported.
+
+The optional `--dma-fix` builds a minimal RX mapping-direction quirk for this
+exact PCI identity/revision from matching Ubuntu source. It restored traffic
+after traced IOMMU read faults; it does not correct radio calibration or expose
+5 GHz. Install with `sudo ./install-wifi.sh --dma-fix --install-deps --update`.
+See [DKMS source provenance](dkms/README.md) and
+[disk-only rollback](../WIFI-RECOVERY.md). Installation never unloads the live
+driver. The default suite invocation below still installs diagnostics only.
 
 ## Install and verify
 
@@ -23,13 +33,20 @@ commands, reports or issues. Existing profiles retain their security and
 autoconnect settings. The installer neither restarts networking nor unloads
 drivers. Ethernet can remain the default route during all tests.
 
-`./verify-wifi.sh` exits nonzero unless the stock driver, loaded firmware,
+`./verify-wifi.sh` exits nonzero unless brcmfmac, loaded firmware,
 association, NetworkManager activation and an IP address are all present.
-`--online` additionally requires device-bound DNS and HTTPS. A successful
+`--online` additionally requires device-bound DNS, HTTPS and zero-loss gateway
+ping. A successful
 Ethernet request cannot count as a Wi-Fi pass. The JSON output is allowlisted:
 no MAC/BSSID, SSID, IP address, UUID, hostname, serial or password is printed.
 Ordinary scan output may be cached; `--scan` waits for NM's `LastScan` timestamp
 to advance and reports `fresh_scan_completed` separately.
+
+`sudo ./verify-wifi.sh --radio` optionally adds allowlisted firmware GETs for
+per-antenna RSSI, noise, chain masks, board revision and bands. Unsupported
+queries are null. It performs no firmware writes. When Ethernet and Wi-Fi share
+a LAN, verify return routing before interpreting device-bound failures as RF
+loss; this session encountered replies returning on the wrong interface.
 
 ```bash
 ./verify-wifi.sh --online --stability 1800
@@ -38,8 +55,9 @@ to advance and reports `fresh_scan_completed` separately.
 ```
 
 The stability sampler checks every approximately 30 seconds. A stability pass
-requires 30 minutes, every sample connected with working Wi-Fi DNS/HTTPS, and
-no increase in accessible kernel driver error counts. These are sampled checks,
+requires 30 minutes, every sample connected with working Wi-Fi DNS/HTTPS, no gateway ping loss, and
+no increase in accessible kernel driver error or device-specific DMA fault
+counts. It also reports the loaded module's srcversion. These are sampled checks,
 not proof that no interruption occurred between samples. Failed pings and
 unavailable throughput remain failures/null, never fabricated zero loss or speed.
 Link rates are distinguished from two optional 10-second iperf3 measurements.
@@ -146,8 +164,8 @@ It performs no external connectivity probes, radio resets, or secret requests.
   cached NM scans can misleadingly continue showing old networks.
 * Keep independent Ethernet connected before any Wi-Fi driver recovery. On SSH,
   check the route to the peer and arrange timed rollback before disrupting it.
-* Save logs privately before recovery. A stock Wi-Fi-only module reload may
-  restore scanning; see [RECOVERY.md](../RECOVERY.md). Do not reset T1, USB,
+* Save logs privately before recovery. Immediate P2P/driver teardown caused
+  kernel crashes here; use [WIFI-RECOVERY.md](../WIFI-RECOVERY.md). Do not reset T1, USB,
   audio, camera, NVMe or ACPI to recover Wi-Fi.
 * Suspend/reboot are unverified until tested on the physical machine. The
   installed verifier provides a post-boot check without initiating a reboot.

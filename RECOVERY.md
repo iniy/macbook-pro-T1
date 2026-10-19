@@ -14,28 +14,18 @@ transaction journal. If only selected fields changed, restore those fields
 deliberately rather than replacing an entire NetworkManager profile/archive.
 APT-provided firmware and diagnostic dependencies are shared and retained.
 
-If firmware commands time out or report `Failed to reserve space in commonring`,
-save local logs first. With **independent Ethernet/local access**, an attended
-Wi-Fi-only reset for the one supported onboard adapter is:
+The optional DMA DKMS module has a separate `--dma-only` rollback mode.
+See [WIFI-RECOVERY.md](WIFI-RECOVERY.md) for exact-source installation,
+kernel-update checks, private backups and rollback instructions.
 
-```bash
-nmcli device disconnect wlp2s0
-sudo modprobe -r brcmfmac_wcc brcmfmac
-sudo modprobe brcmfmac
-```
+**Do not immediately unload brcmfmac after disconnecting or unmanaging Wi-Fi.**
+An asynchronous P2P teardown race caused two kernel crashes during this
+investigation. The old live-reload instructions have been withdrawn. Install
+or remove the module on disk and use a normal reboot with saved work to apply
+it. No T1, USB, audio, camera, NVMe or ACPI reset is part of Wi-Fi recovery.
 
-Confirm the discovered interface name first. Do not use these commands if another
-active adapter also depends on brcmfmac, or if the SSH/session route uses Wi-Fi
-without a timed recovery path. No NetworkManager restart, Bluetooth unload,
-whole-USB reset or T1/audio/camera reload is needed. A reset can restore scanning
-without fixing association, receive sensitivity or the missing 5 GHz band.
-
-The Wi-Fi installer itself never unloads drivers. After optional module settings
-are removed, reboot when convenient to clear those live parameters. Only the
-running kernel's initramfs is refreshed; preserve the working kernel.
-`journalctl -b -u macbook-t1-wifi-verify.service` shows the installed read-only
-post-boot check. Wi-Fi-only verification cannot establish that physical Touch
-Bar keys, speakers, headphones or microphone have passed.
+`journalctl -b -u macbook-t1-wifi-verify.service` shows the read-only post-boot
+check. Wi-Fi verification does not establish physical Touch Bar or audio tests.
 
 ## Audio/camera component recovery
 

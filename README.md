@@ -15,16 +15,16 @@ for the complete results, [UBUNTU-INSTALL-RESULT.md](UBUNTU-INSTALL-RESULT.md)
 for the original Touch Bar installation, and [BUILD-REPORT.md](BUILD-REPORT.md)
 for build validation.
 
-**Wi-Fi status: NOT FIXED on the tested machine.** The BCM43602 (`14e4:43ba`,
-Apple `106b:0157`) loads stock brcmfmac/firmware and scans 2.4 GHz, but reliable
-association, normal reception and 5 GHz remain unresolved. The new component
-provides reversible configuration, private backups, diagnostics and honest
-post-boot verification. See [WIFI-IMPLEMENTATION-REPORT.md](WIFI-IMPLEMENTATION-REPORT.md)
-for measured results and [wifi/README.md](wifi/README.md) for firmware analysis.
+**Wi-Fi status: PARTIAL.** A hardware-scoped brcmfmac RX DMA fix restored actual
+2.4 GHz connectivity on the BCM43602 (`14e4:43ba`, Apple `106b:0157`, revision 02).
+Weak reception, sustained reliability and missing 5 GHz remain unresolved. The fix is
+integrated as an optional exact-source DKMS module with reversible installation.
+See [root cause](WIFI-ROOT-CAUSE-REPORT.md), [benchmarks](WIFI-BENCHMARKS.md),
+[recovery](WIFI-RECOVERY.md) and [component details](wifi/README.md).
 
 ```bash
-sudo ./install-ubuntu.sh --wifi --install-deps
-./verify-wifi.sh --scan --online
+sudo ./install-wifi.sh --dma-fix --install-deps --update
+sudo ./verify-wifi.sh --scan --online
 # Optional explicit physical country, e.g. only while in India:
 sudo ./install-wifi.sh --update --country IN
 ```
@@ -82,7 +82,7 @@ sudo ./install-ubuntu.sh --touchbar --camera --install-deps
 | 3.5 mm headphones | Supported upstream path and jack controls present; no wired headphones available for physical test |
 | Internal microphone | Actual signal captured; user confirmed browser recording; input level corrected to independent unity software gain |
 | FaceTime HD camera | Stock `uvcvideo`; MJPEG capture/decode and Firefox 1280×720 preview passed |
-| Built-in Wi-Fi | Stock BCM43602 detected; experimental integration; weak reception, failed association and missing 5 GHz remain unresolved |
+| Built-in Wi-Fi | Narrow DMA patch restores 2.4 GHz traffic; weak reception, loss and missing 5 GHz remain unresolved |
 | Reboot / suspend | Persistence configured; post-reboot and suspend behavior remain unverified |
 
 See [AUDIO-CAMERA-IMPLEMENTATION-REPORT.md](AUDIO-CAMERA-IMPLEMENTATION-REPORT.md)

@@ -76,6 +76,13 @@ def driver_errors(text):
                for line in lines)
 
 
+def dma_errors(text, pci_address):
+    """Count IOMMU faults for this adapter only, including NO_PASID reports."""
+    address = pci_address.removeprefix('0000:')
+    return sum('DMAR:' in line and 'fault' in line.lower() and
+               f'device [{address}]' in line for line in text.splitlines())
+
+
 def fresh_scan(iface):
     """Wait for NM's LastScan timestamp to advance, not merely for cached AP output."""
     rc, path = command('nmcli', '-g', 'GENERAL.DBUS-PATH', 'device', 'show', iface)
@@ -161,7 +168,7 @@ def connectivity(iface):
     return result
 
 
-def snapshot(online=False, scan=False):
+def snapshot(online=False, scan=False, radio_info=False):
     dev = hardware()
     iface = interface(dev)
     driver = (dev / 'driver').resolve().name
@@ -198,6 +205,9 @@ def snapshot(online=False, scan=False):
     rc, logs = command('journalctl', '-b', '-k', '--no-pager', '-o', 'cat')
     result['kernel_log_access'] = rc == 0 and bool(logs)
     result['boot_driver_error_lines'] = driver_errors(logs) if result['kernel_log_access'] else None
+    result['boot_dma_fault_lines'] = dma_errors(logs, dev.name) if result['kernel_log_access'] else None
+    loaded = Path('/sys/module/brcmfmac/srcversion')
+    result['loaded_driver_srcversion'] = loaded.read_text().strip() if loaded.is_file() else None
     _, auth = command('journalctl', '-b', '-u', 'wpa_supplicant', '--no-pager', '-o', 'cat')
     result['boot_association_reject_codes'] = sorted({int(n) for n in re.findall(r'status_code=(\d+)', auth)})
     if online:
@@ -205,13 +215,21 @@ def snapshot(online=False, scan=False):
             'gateway_ping': None, 'dns_via_wifi': False, 'https_via_wifi': False}
     result['throughput_mbps'] = None
     result['sustained_stability_verified'] = False
+    if radio_info:
+        import radio
+        result['radio'] = radio.snapshot(iface)
     return result
 
 
 def healthy(result, online=False):
-    return all(result[k] for k in ['driver_detected', 'firmware_loaded', 'link_query_ok',
-                                  'nm_activated', 'ip_assigned']) and result['link']['associated'] and (
-        not online or all(result['connectivity'][k] for k in ['dns_via_wifi', 'https_via_wifi']))
+    linked = all(result[k] for k in ['driver_detected', 'firmware_loaded', 'link_query_ok',
+                                   'nm_activated', 'ip_assigned']) and result['link']['associated']
+    if not online:
+        return linked
+    network = result['connectivity']
+    gateway = network.get('gateway_ping') or {}
+    return (linked and network['dns_via_wifi'] and network['https_via_wifi'] and
+            gateway.get('success', False) and gateway.get('packet_loss_percent') == 0)
 
 
 def throughput(server):
@@ -233,6 +251,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--online', action='store_true', help='Low-bandwidth DNS/HTTPS/ping bound to Wi-Fi')
     parser.add_argument('--scan', action='store_true', help='Request a fresh scan')
+    parser.add_argument('--radio', action='store_true', help='Optional read-only firmware antenna/noise/board metrics (root)')
     parser.add_argument('--stability', type=int, default=0, metavar='SECONDS', help='Sample every 30 seconds; 1800 for 30 minutes')
     parser.add_argument('--iperf-server', help='Explicit private LAN IPv4 iperf3 endpoint; two 10-second device-bound tests')
     args = parser.parse_args()
@@ -240,11 +259,12 @@ def main():
         parser.error('Duration must be nonnegative')
     start = time.monotonic()
     samples = failures = 0
-    initial_errors = None
+    initial_errors = initial_dma_errors = None
     while True:
-        result = snapshot(args.online, args.scan and samples == 0)
+        result = snapshot(args.online, args.scan and samples == 0, args.radio)
         if samples == 0:
             initial_errors = result['boot_driver_error_lines']
+            initial_dma_errors = result['boot_dma_fault_lines']
         if args.iperf_server and samples == 0 and healthy(result):
             result['throughput_mbps'] = throughput(args.iperf_server)
         samples += 1
@@ -253,7 +273,9 @@ def main():
         result.update(elapsed_seconds=round(elapsed, 1), samples=samples, failed_samples=failures)
         result['sustained_stability_verified'] = (args.online and elapsed >= 1800 and failures == 0
                                                  and initial_errors is not None
-                                                 and result['boot_driver_error_lines'] == initial_errors)
+                                                 and result['boot_driver_error_lines'] == initial_errors
+                                                 and initial_dma_errors is not None
+                                                 and result['boot_dma_fault_lines'] == initial_dma_errors)
         print(json.dumps(result, sort_keys=True), flush=True)
         if elapsed >= args.stability:
             return int(failures != 0)

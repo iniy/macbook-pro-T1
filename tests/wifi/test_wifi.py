@@ -63,6 +63,17 @@ class Diagnostics(unittest.TestCase):
                 'brcmfmac: no clm_blob available (err=-2)\n')
         self.assertEqual(check.driver_errors(text), 2)
 
+    def test_online_acceptance_includes_gateway_loss(self):
+        result = dict(driver_detected=True, firmware_loaded=True, link_query_ok=True,
+                      nm_activated=True, ip_assigned=True, link={'associated': True},
+                      connectivity={'dns_via_wifi': True, 'https_via_wifi': True,
+                                    'gateway_ping': {'success': True, 'packet_loss_percent': 0}})
+        self.assertTrue(check.healthy(result, online=True))
+        result['connectivity']['gateway_ping']['packet_loss_percent'] = 33.3
+        self.assertFalse(check.healthy(result, online=True))
+        result['connectivity']['gateway_ping'] = None
+        self.assertFalse(check.healthy(result, online=True))
+
 
 class Rollback(unittest.TestCase):
     def restore(self, current):

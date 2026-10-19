@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""Reversible, opt-in stock-brcmfmac configuration for the validated T1 model."""
+"""Reversible Wi-Fi configuration and opt-in BCM43602 DMA repair."""
 import argparse
 import fcntl
 import json
@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'lib'))
 from component_support import host, transaction
 from check import hardware, command
+import driver
 
 STATE = Path('/var/lib/macbook-t1-wifi')
 PREFIX = '/usr/local/libexec/macbook-t1-wifi'
@@ -41,8 +42,8 @@ def country(value):
 
 def settings(args, previous=None):
     values = dict(previous or {})
-    for name in ['country', 'disable_offload', 'roamoff', 'profile', 'powersave', 'stable_mac']:
-        value = getattr(args, name)
+    for name in ['country', 'disable_offload', 'roamoff', 'profile', 'powersave', 'stable_mac', 'dma_fix']:
+        value = getattr(args, name, None)
         if value is not None:
             values[name] = value
         else:
@@ -107,6 +108,7 @@ def restore_profile(state=STATE):
 def payload(options):
     files = {
         PREFIX + '/check.py': (ROOT / 'wifi/check.py').read_bytes(),
+        PREFIX + '/radio.py': (ROOT / 'wifi/radio.py').read_bytes(),
         PREFIX + '/country.py': (ROOT / 'wifi/country.py').read_bytes(),
         '/etc/systemd/system/macbook-t1-wifi-verify.service': (ROOT / 'wifi/macbook-t1-wifi-verify.service').read_bytes(),
         '/etc/systemd/system/' + VERIFY: (ROOT / 'wifi/macbook-t1-wifi-verify.timer').read_bytes(),
@@ -173,6 +175,7 @@ def install(args):
         raise RuntimeError('Refusing symlink state directory')
     if (STATE / 'complete').exists():
         previous = json.loads((STATE / 'options.json').read_text())
+        previous.setdefault('dma_fix', None)
         requested = settings(args, previous)
         if not unchanged():
             raise RuntimeError('Installed files/profile fields were edited; preserve/review those edits before updating')
@@ -187,8 +190,8 @@ def install(args):
     device = hardware()
     if (device / 'driver').exists() and (device / 'driver').resolve().name != 'brcmfmac':
         raise RuntimeError('A different driver owns this adapter; resolve that conflict first')
-    if run('modinfo', '-F', 'intree', 'brcmfmac') != 'Y':
-        raise RuntimeError('This component requires the stock in-tree brcmfmac module')
+    if run('modinfo', '-F', 'intree', 'brcmfmac') != 'Y' and not driver.owned():
+        raise RuntimeError('Requires stock brcmfmac or this project\'s owned DMA DKMS module')
     if options['disable_offload'] or options['roamoff']:
         for directory in ['/etc/modprobe.d', '/run/modprobe.d', '/usr/local/lib/modprobe.d', '/usr/lib/modprobe.d']:
             for path in Path(directory).glob('*.conf'):
@@ -262,6 +265,9 @@ def main():
     parser.add_argument('action', choices=['install', 'uninstall'])
     parser.add_argument('--install-deps', action='store_true')
     parser.add_argument('--update', action='store_true', help='Refresh owned tools/configuration, retaining previous options')
+    parser.add_argument('--dma-fix', action='store_true', default=None,
+                        help='Install the hardware-scoped RX DMA fix using exact-source DKMS; no live reload')
+    parser.add_argument('--dma-only', action='store_true', help='With uninstall: remove only the DMA module')
     parser.add_argument('--country', help='Confirmed physical country, ISO alpha-2; no default override')
     parser.add_argument('--disable-offload', action='store_true', default=None, help='Opt-in FWSUP/SAE compatibility trial, not a default')
     parser.add_argument('--roamoff', action='store_true', default=None, help='Opt-in only for proven firmware roaming failures')
@@ -277,9 +283,21 @@ def main():
     with Path('/run/macbook-t1-wifi.lock').open('w') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         if args.action == 'install':
+            if args.dma_only:
+                raise RuntimeError('--dma-only is for uninstall')
             install(args)
+            if json.loads((STATE / 'options.json').read_text()).get('dma_fix'):
+                driver.install(args.install_deps)
         else:
-            remove()
+            driver.remove()
+            if args.dma_only:
+                options_file = STATE / 'options.json'
+                if options_file.exists():
+                    options = json.loads(options_file.read_text())
+                    options['dma_fix'] = None
+                    transaction().atomic(options_file, json.dumps(options).encode(), 0o600)
+            else:
+                remove()
 
 
 if __name__ == '__main__':

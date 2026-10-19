@@ -22,3 +22,4 @@ Module.symvers
 modules.order
 .tmp_versions/
 /audio/build/
+/wifi/dkms/build/

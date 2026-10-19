@@ -1,3 +1,11 @@
+# Historical report — superseded for current status
+
+This records the earlier failed association experiments. The subsequent
+[root-cause investigation](WIFI-ROOT-CAUSE-REPORT.md) identifies and repairs a
+DMA-permission bug, with actual 2.4 GHz traffic. Weak reception and missing
+5 GHz remain unresolved; consult [current benchmarks](WIFI-BENCHMARKS.md).
+
+
 # Wi-Fi implementation report — 2026-10-19
 
 ## Outcome

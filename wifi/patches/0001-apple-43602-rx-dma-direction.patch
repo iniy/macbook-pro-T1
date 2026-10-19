@@ -1,0 +1,50 @@
+--- a/brcmfmac/msgbuf.c
++++ b/brcmfmac/msgbuf.c
+@@ -11,6 +11,7 @@
+ #include <linux/types.h>
+ #include <linux/netdevice.h>
+ #include <linux/etherdevice.h>
++#include <linux/pci.h>
+ 
+ #include <brcmu_utils.h>
+ #include <brcmu_wifi.h>
+@@ -1559,6 +1560,30 @@
+ 	brcmf_debugfs_add_entry(drvr, "msgbuf_stats", brcmf_msgbuf_stats_read);
+ }
+ 
++/*
++ * The BCM43602 firmware on Apple's 106b:0157 board reads posted RX
++ * buffers. Write-only IOMMU mappings cause DMA read faults and firmware
++ * command timeouts. Keep translation enabled and grant read access only
++ * to these driver-owned buffers; use the same direction when unmapping.
++ */
++static enum dma_data_direction
++brcmf_msgbuf_rx_direction(struct brcmf_bus *bus)
++{
++	struct pci_dev *pdev;
++
++	if (!dev_is_pci(bus->dev))
++		return DMA_FROM_DEVICE;
++
++	pdev = to_pci_dev(bus->dev);
++	if (pdev->vendor == PCI_VENDOR_ID_BROADCOM && pdev->device == 0x43ba &&
++	    pdev->subsystem_vendor == PCI_VENDOR_ID_APPLE &&
++	    pdev->subsystem_device == 0x0157 && pdev->revision == 2)
++		return DMA_BIDIRECTIONAL;
++
++	return DMA_FROM_DEVICE;
++}
++
++
+ int brcmf_proto_msgbuf_attach(struct brcmf_pub *drvr)
+ {
+ 	struct brcmf_bus_msgbuf *if_msgbuf;
+@@ -1639,7 +1664,7 @@
+ 	if (!msgbuf->tx_pktids)
+ 		goto fail;
+ 	msgbuf->rx_pktids = brcmf_msgbuf_init_pktids(NR_RX_PKTIDS,
+-						     DMA_FROM_DEVICE);
++			brcmf_msgbuf_rx_direction(drvr->bus_if));
+ 	if (!msgbuf->rx_pktids)
+ 		goto fail;
+ 
