@@ -1,6 +1,6 @@
-# MacBookPro13,2 Touch Bar, Audio and Camera — Ubuntu 26.10
+# MacBookPro13,2 Linux hardware support — Ubuntu 26.10
 
-One project for the **Touch Bar, internal audio and FaceTime HD camera** on the
+One project for the **Touch Bar, internal audio, FaceTime HD camera and experimental Wi-Fi integration** on the
 Intel **MacBookPro13,2** (13-inch, Late 2016, Apple T1 USB **05ac:8600**).
 Tested on **Ubuntu 26.10 (Stonking Stingray)** with **7.3.0-9-generic** and
 matching **7.3.0-9.9** headers/source. DKMS builds the two Touch Bar modules and
@@ -14,6 +14,24 @@ See [AUDIO-CAMERA-IMPLEMENTATION-REPORT.md](AUDIO-CAMERA-IMPLEMENTATION-REPORT.m
 for the complete results, [UBUNTU-INSTALL-RESULT.md](UBUNTU-INSTALL-RESULT.md)
 for the original Touch Bar installation, and [BUILD-REPORT.md](BUILD-REPORT.md)
 for build validation.
+
+**Wi-Fi status: NOT FIXED on the tested machine.** The BCM43602 (`14e4:43ba`,
+Apple `106b:0157`) loads stock brcmfmac/firmware and scans 2.4 GHz, but reliable
+association, normal reception and 5 GHz remain unresolved. The new component
+provides reversible configuration, private backups, diagnostics and honest
+post-boot verification. See [WIFI-IMPLEMENTATION-REPORT.md](WIFI-IMPLEMENTATION-REPORT.md)
+for measured results and [wifi/README.md](wifi/README.md) for firmware analysis.
+
+```bash
+sudo ./install-ubuntu.sh --wifi --install-deps
+./verify-wifi.sh --scan --online
+# Optional explicit physical country, e.g. only while in India:
+sudo ./install-wifi.sh --update --country IN
+```
+
+Wi-Fi installation never copies community calibration or patches firmware.
+It does not restart networking. Successful installation is not proof that
+wireless association or internet access works.
 
 ## Install all components
 
@@ -40,7 +58,7 @@ After login:
 ./verify-camera.sh --capture   # briefly uses the camera; retains no frames
 ```
 
-`--touchbar`, `--audio` and `--camera` select independent components; selectors
+`--touchbar`, `--audio`, `--camera` and `--wifi` select independent components; selectors
 can be combined. `--verify` and `--uninstall` are also accepted by the unified
 installer. The legacy no-selector invocation remains Touch Bar-only.
 Matching completed installations are idempotent and preserve live drivers.
@@ -64,12 +82,17 @@ sudo ./install-ubuntu.sh --touchbar --camera --install-deps
 | 3.5 mm headphones | Supported upstream path and jack controls present; no wired headphones available for physical test |
 | Internal microphone | Actual signal captured; user confirmed browser recording; input level corrected to independent unity software gain |
 | FaceTime HD camera | Stock `uvcvideo`; MJPEG capture/decode and Firefox 1280×720 preview passed |
+| Built-in Wi-Fi | Stock BCM43602 detected; experimental integration; weak reception, failed association and missing 5 GHz remain unresolved |
 | Reboot / suspend | Persistence configured; post-reboot and suspend behavior remain unverified |
 
 See [AUDIO-CAMERA-IMPLEMENTATION-REPORT.md](AUDIO-CAMERA-IMPLEMENTATION-REPORT.md)
 for the precise evidence and remaining gaps. The post-login verifier installed
 by `--all` records read-only checks under
 `~/.local/state/macbook-t1/verify-<boot-id>.log`; it never records audio/video.
+Wi-Fi also installs an independent read-only post-boot timer; inspect
+`journalctl -b -u macbook-t1-wifi-verify.service`. `--all` verification correctly
+returns failure while Wi-Fi is not associated; check individual components to
+see their separate results.
 
 ### Audio safety and testing
 
@@ -191,6 +214,7 @@ Remove only audio or camera while retaining the working Touch Bar:
 ```bash
 sudo ./uninstall-ubuntu.sh --audio
 sudo ./uninstall-ubuntu.sh --camera
+sudo ./uninstall-ubuntu.sh --wifi
 ```
 
 Remove the complete suite with `sudo ./uninstall-ubuntu.sh --all`. Camera

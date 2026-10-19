@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def commands(action, components, deps=False):
-    order = ['camera', 'audio', 'touchbar'] if action == 'uninstall' else ['touchbar', 'audio', 'camera']
+    order = ['wifi', 'camera', 'audio', 'touchbar'] if action == 'uninstall' else ['touchbar', 'audio', 'camera', 'wifi']
     for component in order:
         if component not in components:
             continue
@@ -23,7 +23,7 @@ def commands(action, components, deps=False):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=['install', 'verify', 'uninstall'])
-    for component in ['touchbar', 'audio', 'camera', 'all']:
+    for component in ['touchbar', 'audio', 'camera', 'wifi', 'all']:
         parser.add_argument('--' + component, action='store_true')
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument('--verify', action='store_true')
@@ -33,10 +33,13 @@ def main():
     action = 'verify' if args.verify else 'uninstall' if args.uninstall else args.action
     if args.install_deps and action != 'install':
         parser.error('--install-deps applies only to installation')
-    selected = {c for c in ['touchbar', 'audio', 'camera'] if getattr(args, c)}
-    if args.all or not selected:
+    selected = {c for c in ['touchbar', 'audio', 'camera', 'wifi'] if getattr(args, c)}
+    if args.all:
+        selected = {'touchbar', 'audio', 'camera', 'wifi'}
+    elif not selected:
+        # Preserve legacy --verify/--uninstall behavior without selectors.
         selected = {'touchbar', 'audio', 'camera'}
-    complete_suite = selected == {'touchbar', 'audio', 'camera'}
+    complete_suite = {'touchbar', 'audio', 'camera'} <= selected
     if complete_suite and action == 'uninstall':
         subprocess.run([sys.executable, str(ROOT / 'lib/suite.py'), 'uninstall'], check=True)
     failed = False

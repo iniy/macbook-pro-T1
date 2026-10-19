@@ -8,7 +8,7 @@ ROOT=$(cd -- "$(dirname -- "$0")" && pwd)
 source "$ROOT/lib/common.sh"
 for arg in "$@"; do
     case "$arg" in
-        --touchbar|--audio|--camera|--all|--verify)
+        --touchbar|--audio|--camera|--wifi|--all|--verify)
             exec python3 "$ROOT/lib/components.py" verify "$@" ;;
     esac
 done

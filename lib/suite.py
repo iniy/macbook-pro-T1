@@ -9,7 +9,8 @@ from component_support import ROOT, host, run, transaction
 
 STATE = Path('/var/lib/macbook-t1-suite')
 FILES = ['verify-ubuntu.sh', 'verify-audio.sh', 'verify-camera.sh', 'lib/common.sh',
-         'lib/components.py', 'lib/component_support.py', 'lib/postboot.py', 'audio/check.py', 'camera/check.py']
+         'lib/components.py', 'lib/component_support.py', 'lib/postboot.py', 'audio/check.py', 'camera/check.py',
+         'verify-wifi.sh', 'wifi/check.py']
 
 
 def setup():

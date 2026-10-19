@@ -28,10 +28,19 @@ class Components(unittest.TestCase):
     def test_shared_camera_dependency_removed_first(self):
         commands = self.run_cli('uninstall', '--all')
         self.assertEqual([Path(cmd[1]).name for cmd in commands],
-                         ['suite.py', 'uninstall-camera.sh', 'uninstall-audio.sh', 'uninstall-ubuntu.sh'])
+                         ['suite.py', 'uninstall-wifi.sh', 'uninstall-camera.sh', 'uninstall-audio.sh', 'uninstall-ubuntu.sh'])
 
     def test_verify_alias_never_installs(self):
         commands = self.run_cli('install', '--verify', '--all')
+        self.assertEqual([Path(cmd[1]).name for cmd in commands],
+                         ['verify-ubuntu.sh', 'verify-audio.sh', 'verify-camera.sh', 'verify-wifi.sh'])
+
+    def test_wifi_only_does_not_touch_t1(self):
+        commands = self.run_cli('install', '--wifi')
+        self.assertEqual([Path(cmd[1]).name for cmd in commands], ['install-wifi.sh'])
+
+    def test_legacy_verify_alias_preserved(self):
+        commands = self.run_cli('install', '--verify')
         self.assertEqual([Path(cmd[1]).name for cmd in commands],
                          ['verify-ubuntu.sh', 'verify-audio.sh', 'verify-camera.sh'])
 

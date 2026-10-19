@@ -1,5 +1,42 @@
 # Recovery and rollback
 
+## Wi-Fi component recovery
+
+Keep Ethernet available and run `sudo ./uninstall-wifi.sh` to restore only the
+Wi-Fi component's unchanged owned files and individual profile settings.
+Backups are retained under `/var/lib/macbook-t1-wifi-removed-*`; the initial
+hardware session also has `/var/backups/macbook-t1-wifi-baseline`.
+These root-only archives can contain credentials: never publish them.
+
+An installation/update is idempotent; an interrupted transaction must be removed
+before reinstalling. Later user edits are preserved and listed in the private
+transaction journal. If only selected fields changed, restore those fields
+deliberately rather than replacing an entire NetworkManager profile/archive.
+APT-provided firmware and diagnostic dependencies are shared and retained.
+
+If firmware commands time out or report `Failed to reserve space in commonring`,
+save local logs first. With **independent Ethernet/local access**, an attended
+Wi-Fi-only reset for the one supported onboard adapter is:
+
+```bash
+nmcli device disconnect wlp2s0
+sudo modprobe -r brcmfmac_wcc brcmfmac
+sudo modprobe brcmfmac
+```
+
+Confirm the discovered interface name first. Do not use these commands if another
+active adapter also depends on brcmfmac, or if the SSH/session route uses Wi-Fi
+without a timed recovery path. No NetworkManager restart, Bluetooth unload,
+whole-USB reset or T1/audio/camera reload is needed. A reset can restore scanning
+without fixing association, receive sensitivity or the missing 5 GHz band.
+
+The Wi-Fi installer itself never unloads drivers. After optional module settings
+are removed, reboot when convenient to clear those live parameters. Only the
+running kernel's initramfs is refreshed; preserve the working kernel.
+`journalctl -b -u macbook-t1-wifi-verify.service` shows the installed read-only
+post-boot check. Wi-Fi-only verification cannot establish that physical Touch
+Bar keys, speakers, headphones or microphone have passed.
+
 ## Audio/camera component recovery
 
 Keep the working Touch Bar while removing audio:
@@ -32,7 +69,7 @@ sudo ./uninstall-camera.sh
 
 It leaves the distribution `uvcvideo` and shared T1 configuration intact.
 `sudo ./uninstall-ubuntu.sh --all` removes the post-login verification service,
-then camera registration, audio and Touch Bar in dependency order. Removing
+then Wi-Fi, camera registration, audio and Touch Bar in dependency order. Removing
 Touch Bar alone is refused while camera registration still depends on it.
 
 Audio transaction logs/backups: `/var/lib/macbook-t1-audio/`.

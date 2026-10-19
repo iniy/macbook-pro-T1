@@ -3,6 +3,34 @@
 Audit date: **2026-10-18**. Package: **macbook-t1-touchbar 1.0.0**.
 Requested target updated during work to the latest stable **Ubuntu 26.10**.
 
+## Wi-Fi integration — 2026-10-19
+
+Branch `feature/bcm43602-wifi`, based on
+`10f013d2759a945cde6a02c20e895d7f79b590ed`.
+
+* Stock Ubuntu brcmfmac retained; no Wi-Fi kernel-module build needed.
+* Python syntax, ShellCheck and systemd unit validation pass.
+* Ten Wi-Fi tests cover exact hardware gating, identity-free metric output,
+  disconnected/ethernet false-positive prevention, PHY-prefixed firmware-error
+  counting, per-field edit-aware rollback and safe default configuration.
+* Five component-routing tests pass, including Wi-Fi-only isolation, updated
+  `--all` ordering and preservation of legacy no-selector action behavior.
+* Existing transaction, installer compatibility, offline source reconstruction,
+  and actual C HID/ACPI sanitizer tests pass.
+* Live Wi-Fi install, repeated install, update, uninstall and reinstall pass.
+  Final configuration requests confirmed India and enables the read-only boot
+  verifier. Root-only backup permissions and unprivileged tool readability pass.
+* Deterministic source packaging/checksums and archive path/privacy checks pass;
+  no private Wi-Fi logs, Apple binaries or calibration data are packaged.
+* Touch Bar and audio software checks pass; camera captured/decoded 30 frames
+  at 640×480 and 1280×720 without retaining recordings.
+* **Hardware Wi-Fi acceptance fails**: no proven association/IP/internet, missing
+  5 GHz, weak signal and firmware command-queue failures. No throughput,
+  30-minute connected stability, suspend or post-reboot success is claimed.
+
+Full diagnostic stages, experiments, sources and limitations:
+[WIFI-IMPLEMENTATION-REPORT.md](WIFI-IMPLEMENTATION-REPORT.md).
+
 ## Audio/camera integration — 2026-10-19
 
 Feature branch: `feature/ubuntu-audio-camera`, based on `36f31c8592c90b88aab1175e89d29f64eb9c3695`.

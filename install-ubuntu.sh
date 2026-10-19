@@ -7,14 +7,14 @@ ROOT=$(cd -- "$(dirname -- "$0")" && pwd)
 source "$ROOT/lib/common.sh"
 for arg in "$@"; do
     case "$arg" in
-        --touchbar|--audio|--camera|--all|--verify|--uninstall)
+        --touchbar|--audio|--camera|--wifi|--all|--verify|--uninstall)
             exec python3 "$ROOT/lib/components.py" install "$@" ;;
     esac
 done
 deps=0
 case "${1:-}" in
     --install-deps) deps=1 ;;
-    --help|-h) echo 'Usage: sudo ./install-ubuntu.sh [--touchbar|--audio|--camera|--all] [--install-deps] [--verify|--uninstall]'; exit 0 ;;
+    --help|-h) echo 'Usage: sudo ./install-ubuntu.sh [--touchbar|--audio|--camera|--wifi|--all] [--install-deps] [--verify|--uninstall]'; exit 0 ;;
     '') ;;
     *) die 'Unknown argument. Use --help.' ;;
 esac

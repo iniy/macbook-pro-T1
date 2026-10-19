@@ -1,0 +1,13 @@
+[Unit]
+Description=Read-only MacBook T1 Wi-Fi post-boot verification
+After=NetworkManager.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/local/libexec/macbook-t1-wifi/check.py
+DynamicUser=yes
+User=macbook-t1-wifi-check
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes

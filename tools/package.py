@@ -10,15 +10,17 @@ ROOT = Path(__file__).resolve().parents[1]
 VERSION = '1.0.0'
 FILES = ['install-ubuntu.sh', 'verify-ubuntu.sh', 'uninstall-ubuntu.sh',
          'README.md', 'BUILD-REPORT.md', 'RECOVERY.md', 'LICENSE', 'SOURCES.md',
-         'UBUNTU-INSTALL-RESULT.md']
+          'UBUNTU-INSTALL-RESULT.md', 'WIFI-IMPLEMENTATION-REPORT.md']
 FILES += ['install-audio.sh', 'verify-audio.sh', 'uninstall-audio.sh',
           'install-camera.sh', 'verify-camera.sh', 'uninstall-camera.sh',
-          'AUDIO-CAMERA-IMPLEMENTATION-REPORT.md']
-DIRS = ['driver', 'patches', 'lib', 'config', 'tests', 'audio', 'camera']
+          'AUDIO-CAMERA-IMPLEMENTATION-REPORT.md',
+          'install-wifi.sh', 'verify-wifi.sh', 'uninstall-wifi.sh']
+DIRS = ['driver', 'patches', 'lib', 'config', 'tests', 'audio', 'camera', 'wifi']
 TOOLS = ['tools/package.py', 'tools/capture-macos.py', 'tools/validate-linux.sh',
          'tools/test-macos.py', 'tools/prepare-vm.py', 'tools/run-vm.sh',
          'tools/vm-ssh.sh', 'tools/qemu-launch.c', 'tools/hypervisor.entitlements']
 REPORTS = ['reports/macos-hardware.json', 'reports/linux-build-7.3.0-9-generic.log',
+           'reports/wifi-baseline.md', 'reports/wifi-final.json',
            'reports/linux-static-analysis.log', 'reports/linux-integration.log',
            'reports/macos-tests.log', 'reports/linux-final-checks.log',
            'reports/package-validation.log',
