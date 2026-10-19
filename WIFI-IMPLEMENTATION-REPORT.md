@@ -200,8 +200,8 @@ Baseline: `10f013d2759a945cde6a02c20e895d7f79b590ed` (clean).
 Branch: **`feature/bcm43602-wifi`**. Implementation revision is recorded in the
 final validation entry below. HTTPS authentication was unavailable, but the
 existing SSH key authenticated successfully to GitHub after verifying host keys
-against GitHub's HTTPS metadata API. The feature branch can therefore be pushed;
-main is not changed or force-pushed.
+against GitHub's HTTPS metadata API. The feature branch was pushed successfully
+over SSH; main was not changed or force-pushed.
 
 The remaining blocker is a validated BCM43602 FullMAC firmware/board-data
 combination for this exact Apple board, or an upstream driver/firmware repair.
@@ -221,6 +221,18 @@ for installation, updates, diagnostic stages and optional settings.
 
 ## Final validation entry
 
+Implementation commit: **`3cfa6aa54756b20bb2de32e5bc84d6ad811d92d0`**,
+published on **`feature/bcm43602-wifi`**. A following documentation commit records
+this identifier and refreshes the deterministic source package.
+
 Static, routing, transaction/privacy and hardware results are recorded in
-[BUILD-REPORT.md](BUILD-REPORT.md). Commit identifiers will be recorded after
-the verified implementation commit is created.
+[BUILD-REPORT.md](BUILD-REPORT.md). Source manifest validation, deterministic
+archive rebuild, archive path checks and a scan of newly published text for
+MAC addresses/credential assignments passed. Private research files and original
+Apple binaries remain outside Git. Existing firmware compares byte-for-byte
+with the pre-change backup; Touch Bar/audio DKMS registrations are unchanged.
+The temporary rollback timer is stopped and the read-only APFS mount is unmounted.
+
+**Final hardware acceptance remains failed.** The final snapshot has fresh
+scanning, 13 enabled 2.4 GHz channels, zero 5 GHz channels, no association/IP,
+and no Wi-Fi-bound internet success. No automatic reboot was performed.
