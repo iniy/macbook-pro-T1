@@ -1,5 +1,10 @@
 # BCM43602 investigation — 19 October 2026
 
+**Historical DMA-repair investigation.** The subsequent
+[2.4 GHz-only follow-up](WIFI-2.4GHZ-ROOT-CAUSE.md) records the current deployment,
+controlled comparisons and remaining RF limitation. 5 GHz is no longer an
+acceptance requirement. The evidence below is retained in its original context.
+
 **Outcome: PARTIAL.** A traced DMA-permission failure was repaired and real
 2.4 GHz connectivity restored on the physical Mac. Weak reception and missing
 5 GHz remain unresolved. The patch does not supply missing board calibration.

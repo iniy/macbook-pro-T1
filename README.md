@@ -17,10 +17,11 @@ for build validation.
 
 **Wi-Fi status: PARTIAL.** A hardware-scoped brcmfmac RX DMA fix restored actual
 2.4 GHz connectivity on the BCM43602 (`14e4:43ba`, Apple `106b:0157`, revision 02).
-Weak reception, sustained reliability and missing 5 GHz remain unresolved. The fix is
+Weak reception remains unresolved; the current investigation prioritizes 2.4 GHz. The DMA fix is
 integrated as an optional exact-source DKMS module with reversible installation.
-See [root cause](WIFI-ROOT-CAUSE-REPORT.md), [benchmarks](WIFI-BENCHMARKS.md),
-[recovery](WIFI-RECOVERY.md) and [component details](wifi/README.md).
+See [2.4 GHz root cause](WIFI-2.4GHZ-ROOT-CAUSE.md),
+[benchmarks](WIFI-2.4GHZ-BENCHMARKS.md), [recovery](WIFI-2.4GHZ-RECOVERY.md)
+and [component details](wifi/README.md).
 
 ```bash
 sudo ./install-wifi.sh --dma-fix --install-deps --update

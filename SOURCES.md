@@ -2,6 +2,25 @@
 
 ## Wi-Fi extension — 2026-10-19
 
+The focused follow-up is in `WIFI-2.4GHZ-ROOT-CAUSE.md`. The installed image is
+owned by Ubuntu `linux-firmware-broadcom-wireless` **20260915.git1522c78a-0ubuntu1**;
+the `linux-firmware` metapackage version alone is not its file provenance.
+The firmware hash matched both that package's manifest and the extracted initramfs.
+
+The follow-up re-read the four research checkouts' implementation/history and
+current DeyAgrO/Bogdan7c issues and Dunedan issue 47 comments. Particularly,
+Broadcom's public [`bcmdevs.h`](https://android.googlesource.com/kernel/common/+/bcmdhd-3.10/drivers/net/wireless/bcmdhd/include/bcmdevs.h)
+defines `boardflags3` low bits as `FEMCTRL_SUB`, `0x100` as `FEMTBL_FROM_NVRAM`,
+and `0x200` as `AGC_CFG_2G`; the community's band-switch shorthand is inaccurate.
+The corresponding `wlioctl.h`/`devctrl_if/wlioctl_defs.h` document the GET-only
+SROM/CIS requests used for the unsuccessful private calibration-recovery attempt.
+These headers are research references, not imported RF configuration.
+The inspected Android common branch resolves to
+`4f750cefc34ed7fc0ba4ef8b72d28b7924c24c6e`. Downloaded source SHA256s:
+`bcmdevs.h` `e98f4ba4ec58ea988bdeb6f7a8d249a2e9eab7e0b17b5085a846cf45bfaab1ce`,
+`wlioctl.h` `0c9209e81265635b815d11743403e384cc1370eb51fce8b54ca37e2db70a0fc9`,
+`wlioctl_defs.h` `88543776640e89938230529ecb95c80d689673190ef3bd6262b99a7230580b3c`.
+
 | Source / exact revision | Review and decision |
 |---|---|
 | [DeyAgrO/macbook-pro-13-2-linux](https://github.com/DeyAgrO/macbook-pro-13-2-linux), `1d52273baa4d86f71113b4e65a181c839fce94fb` | Read README, installation/packaging scripts, NVRAM and firmware-country patch; issue #1 concerns compressed firmware. Its board calibration is not validated for this unit; binary country rewriting and transmit-power dispatcher are not adopted. |

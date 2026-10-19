@@ -1,9 +1,10 @@
 # BCM43602 Wi-Fi component
 
-**Experimental integration; reliable dual-band operation is not yet established.**
-See [the current root-cause report](../WIFI-ROOT-CAUSE-REPORT.md) and
-[benchmarks](../WIFI-BENCHMARKS.md). The earlier implementation report is
-historical evidence from before the DMA fix.
+**2.4 GHz reception remains unresolved.** See the focused
+[root-cause report](../WIFI-2.4GHZ-ROOT-CAUSE.md),
+[measurements](../WIFI-2.4GHZ-BENCHMARKS.md) and
+[recovery](../WIFI-2.4GHZ-RECOVERY.md). The older reports retain the history
+of the separate DMA/association repair. 5 GHz is not an acceptance target.
 
 Validated detection target: MacBookPro13,2, Apple BCM43602 revision 2,
 PCI `14e4:43ba`, subsystem `106b:0157`, Ubuntu 26.10, stock
@@ -68,15 +69,25 @@ or automatic throughput traffic is used.
 
 Use `install-wifi.sh` directly for Wi-Fi-specific options:
 
+* `--2ghz-only`: set the selected profile's band to `bg`. If `--profile UUID` is
+  omitted, the installer discovers the active profile on the verified BCM43602.
+  Only that profile is backed up/edited. BSSID and security fields are preserved.
+  This constrains association; it cannot improve receiver sensitivity.
+* `--bssid ACTUAL_AP_ADDRESS`: optional per-profile AP pin for a demonstrated
+  roaming failure. Use only after a controlled comparison; it reduces mobility
+  and cannot improve RF gain. The default leaves BSSID selection alone.
+  `--bssid ''` clears an installed pin; backups preserve the original value.
 * `--country IN`: request India only while physically in India; substitute your
   actual ISO country. The stock regulatory notifier and firmware limits remain
   authoritative. There is no unrestricted domain, country-revision selection,
   country-fixing driver patch, or transmit-power override. On this machine the
-  India trial did not fix association or expose 5 GHz; verify the effect before
-  making it persistent.
+  early-boot hint was superseded by an AP-country hint. A hardware-scoped
+  NetworkManager dispatcher now repeats the ordinary request on Wi-Fi `up`.
+  Regulatory intersections may appear as `98`/`99`; this does not bypass them.
 * `--profile UUID --powersave off`: set just this saved Wi-Fi profile to NM power
   saving `2`. Useful only after evidence of power-saving-related drops/latency;
   may increase battery consumption. `--powersave on` selects `3`.
+  The active BCM43602 profile is discovered if UUID is omitted.
 * `--profile UUID --stable-mac`: NM generates a local, stable address for this
   profile. No address from a community NVRAM file is copied. Check AP access
   policies first; this is not a universal association fix.
@@ -105,6 +116,8 @@ Ubuntu's `linux-firmware` package provides
 The session used package `20260915.git1522c78a.1ubuntu`, firmware
 `7.35.177.61`, FWID `01-ea662a8c`. Package checksums matched.
 Firmware is obtained reproducibly through Ubuntu APT, not bundled here.
+On this Ubuntu release the owning package is `linux-firmware-broadcom-wireless`;
+`linux-firmware` is a metapackage. Verify against the owning package's manifest.
 
 The running source requests a board-qualified name first:
 `brcmfmac43602-pcie.Apple Inc.-MacBookPro13,2.{bin,txt,clm_blob,txcap_blob}`,
@@ -130,6 +143,7 @@ strings in the binary. The macOS partition was only inspected read-only.
 ```bash
 sudo ./install-wifi.sh            # idempotent; retains selected options
 sudo ./install-wifi.sh --update   # refresh owned tools; preserves selected options
+sudo ./uninstall-wifi.sh --settings-only  # keep the DMA driver; restore settings/tools
 sudo ./uninstall-wifi.sh
 ```
 
@@ -145,6 +159,37 @@ are archived alongside it. Do not upload these directories. APT-installed
 shared firmware/tools remain installed on removal. Current connections are
 not disconnected; restored profile fields apply at the next connection and
 restored module options at the next boot.
+
+## Controlled measurements
+
+Keep the laptop and AP fixed throughout the comparison. Run one test at a time.
+An explicit LAN iperf3 endpoint is preferred; a server address assigned to this
+same client namespace is rejected because local routing would bypass Wi-Fi.
+
+```bash
+sudo ./wifi/benchmark.sh --seconds 180 --iperf-server LAN_SERVER_IPV4 --output /var/tmp/wifi-before.json
+sudo ./wifi/experiment.sh --powersave off --iperf-server LAN_SERVER_IPV4
+```
+
+The benchmark records RSSI median/range/standard deviation, negotiated rates,
+idle and loaded latency, continuous gateway packet loss, station-counter
+deltas, repeated real bidirectional TCP transfers, interface byte-count checks,
+and new kernel errors. Missing statistics remain null. JSON output files are
+private and never overwritten. `--iperf-server` may be omitted, in which case
+throughput is explicitly unavailable.
+
+The experiment changes only live power saving on an already-associated 2.4 GHz
+link. It verifies the applied value and always restores the original state.
+An independent systemd timer restores it if the process/session dies; reboot
+uses the untouched saved profile. Results are in root-only
+`/var/lib/macbook-t1-wifi-experiments/`. Compare repeated A/B/A/B runs before
+using `install-wifi.sh --update --powersave off` for a persistent choice.
+The tools do not treat a latency improvement as an RF reception repair.
+
+Public module indexes are generated under umask 022. Private backup directories
+remain 0700, archives/journals 0600. This corrects a prior installer bug that made
+unprivileged `modinfo` fail. The existing DMA module is recognized even when DKMS
+adds its `(Original modules exist)` annotation; it is not rebuilt for a settings update.
 
 Post-boot results: `journalctl -b -u macbook-t1-wifi-verify.service`.
 The read-only timer runs approximately two minutes after boot and may correctly

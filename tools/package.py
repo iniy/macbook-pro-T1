@@ -12,6 +12,8 @@ FILES = ['install-ubuntu.sh', 'verify-ubuntu.sh', 'uninstall-ubuntu.sh',
          'README.md', 'BUILD-REPORT.md', 'RECOVERY.md', 'LICENSE', 'SOURCES.md',
           'UBUNTU-INSTALL-RESULT.md', 'WIFI-IMPLEMENTATION-REPORT.md',
           'WIFI-ROOT-CAUSE-REPORT.md', 'WIFI-BENCHMARKS.md', 'WIFI-RECOVERY.md']
+FILES += ['WIFI-2.4GHZ-ROOT-CAUSE.md', 'WIFI-2.4GHZ-BENCHMARKS.md',
+          'WIFI-2.4GHZ-RECOVERY.md', 'WIFI-2.4GHZ-IMPLEMENTATION.md']
 FILES += ['install-audio.sh', 'verify-audio.sh', 'uninstall-audio.sh',
           'install-camera.sh', 'verify-camera.sh', 'uninstall-camera.sh',
           'AUDIO-CAMERA-IMPLEMENTATION-REPORT.md',

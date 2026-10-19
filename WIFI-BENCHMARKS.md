@@ -1,5 +1,9 @@
 # Physical BCM43602 measurements — 19 October 2026
 
+These are the earlier DMA-investigation measurements. See the subsequent
+[controlled 2.4 GHz comparisons](WIFI-2.4GHZ-BENCHMARKS.md) for current results;
+different sessions/positions must not be combined as one baseline.
+
 **Reception remains unresolved.** The RX DMA repair restored usable 2.4 GHz
 traffic, but does not provide normal radio sensitivity. See
 [root-cause evidence](WIFI-ROOT-CAUSE-REPORT.md) and
