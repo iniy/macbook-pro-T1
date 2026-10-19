@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""Build the optional India-country guard plus existing DMA fix for exact Ubuntu ABI."""
+"""Rebuild exact Ubuntu brcmfmac with the scoped RX DMA repair and load diagnostics."""
 import argparse
 import hashlib
 import json

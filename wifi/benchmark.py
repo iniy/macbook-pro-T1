@@ -89,7 +89,7 @@ def transfers(iface, server, repeats, delay):
     return results
 
 
-def measure(duration=120, interval=2, server=None, repeats=3, band='2.4'):
+def measure(duration=120, interval=2, server=None, repeats=3, band='5'):
     dev = check.hardware()
     iface = check.interface(dev)
     first = check.snapshot(online=True, radio_info=os.geteuid() == 0)
@@ -174,7 +174,7 @@ def main():
     parser.add_argument('--seconds', type=int, default=120)
     parser.add_argument('--interval', type=float, default=2)
     parser.add_argument('--iperf-server')
-    parser.add_argument('--band', choices=['2.4', '5'], default='2.4')
+    parser.add_argument('--band', choices=['5'], default='5')
     parser.add_argument('--repeats', type=int, default=3)
     parser.add_argument('--output', type=Path, required=True, help='New local JSON file; never overwritten')
     args = parser.parse_args()

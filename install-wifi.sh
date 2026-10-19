@@ -2,4 +2,4 @@
 # SPDX-License-Identifier: MIT
 set -euo pipefail
 ROOT=$(cd -- "$(dirname -- "$0")" && pwd)
-exec python3 "$ROOT/wifi/manage.py" install "$@"
+exec python3 "$ROOT/wifi/5ghz/deploy.py" install "$@"

@@ -252,7 +252,7 @@ def main():
     parser.add_argument('--online', action='store_true', help='Low-bandwidth DNS/HTTPS/ping bound to Wi-Fi')
     parser.add_argument('--scan', action='store_true', help='Request a fresh scan')
     parser.add_argument('--radio', action='store_true', help='Optional read-only firmware antenna/noise/board metrics (root)')
-    parser.add_argument('--band', choices=['2.4', '5'], help='Require association on this band')
+    parser.add_argument('--band', choices=['5'], default='5', help='Require a 5 GHz association')
     parser.add_argument('--stability', type=int, default=0, metavar='SECONDS', help='Sample every 30 seconds; 1800 for 30 minutes')
     parser.add_argument('--iperf-server', help='Explicit private LAN IPv4 iperf3 endpoint; two 10-second device-bound tests')
     args = parser.parse_args()

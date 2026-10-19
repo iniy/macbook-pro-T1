@@ -12,8 +12,6 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'wifi'))
-import manage  # Establishes shared library path used by the installer.
-import driver
 import check
 
 spec = importlib.util.spec_from_file_location('wifi_prepare', ROOT / 'wifi/dkms/prepare.py')
@@ -90,65 +88,6 @@ int main(void) {
     def test_unsupported_kernel_is_rejected_before_filesystem_access(self):
         with self.assertRaisesRegex(RuntimeError, 'audited'):
             prepare.source_version('7.4.0-1-generic')
-
-
-class Removal(unittest.TestCase):
-    def test_built_but_uninstalled_module_is_not_owned(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            state = Path(tmp)
-            (state / 'complete').touch()
-            prefix = 'macbook-t1-wifi-dma/1.0.0, 7.3.0-9-generic, x86_64: '
-            with patch.object(driver, 'STATE', state), patch.object(driver, 'module_path', return_value=Path('/lib/modules/updates/dkms/brcmfmac.ko')), patch.object(driver, 'run') as run:
-                run.return_value = prefix + 'built'
-                self.assertFalse(driver.owned('7.3.0-9-generic'))
-                run.return_value = prefix + 'installed'
-                self.assertTrue(driver.owned('7.3.0-9-generic'))
-                run.return_value = prefix + 'installed (Original modules exist)'
-                self.assertTrue(driver.owned('7.3.0-9-generic'))
-
-    def test_private_parent_umask_does_not_hide_module_indexes(self):
-        import os
-        with tempfile.TemporaryDirectory() as tmp:
-            target = Path(tmp) / 'modules.dep'
-            old = os.umask(0o077)
-            try:
-                driver.run(sys.executable, '-c', 'from pathlib import Path; import sys; Path(sys.argv[1]).touch()', str(target))
-                self.assertEqual(target.stat().st_mode & 0o777, 0o644)
-                self.assertEqual(os.umask(0o077), 0o077)
-            finally:
-                os.umask(old)
-
-    def test_later_source_edits_block_destructive_removal(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            state, source = Path(tmp) / 'state', Path(tmp) / 'source'
-            state.mkdir()
-            source.mkdir()
-            (state / 'source.json').write_text('{}')
-            (source / 'edited').write_text('retain me')
-            with patch.object(driver, 'STATE', state), patch.object(driver, 'SOURCE', source), patch.object(driver, 'run') as run:
-                with self.assertRaisesRegex(RuntimeError, 'edited'):
-                    driver.remove()
-                run.assert_not_called()
-            self.assertEqual((source / 'edited').read_text(), 'retain me')
-
-    def test_uninstall_restores_disk_without_live_unload(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            state, source = Path(tmp) / 'state', Path(tmp) / 'source'
-            state.mkdir()
-            source.mkdir()
-            (state / 'source.json').write_text('{}')
-            (state / 'kernels.json').write_text('["7.3.0-9-generic"]')
-            def output(*args):
-                if args[:2] == ('dkms', 'status'):
-                    return 'macbook-t1-wifi-dma/1.0.0, 7.3.0-9-generic, x86_64: installed'
-                return ''
-            with patch.object(driver, 'STATE', state), patch.object(driver, 'SOURCE', source), patch.object(driver, 'run', side_effect=output) as run, patch.object(driver, 'module_path', return_value=Path('/lib/modules/stock.ko')):
-                driver.remove()
-                calls = [call.args for call in run.call_args_list]
-                self.assertIn(('update-initramfs', '-u', '-k', '7.3.0-9-generic'), calls)
-                self.assertFalse(any(c[0] in ('modprobe', 'rmmod', 'nmcli', 'reboot') for c in calls))
-            self.assertFalse(state.exists())
-            self.assertTrue(list(Path(tmp).glob('state-removed-*/retired-source')))
 
 
 class Faults(unittest.TestCase):

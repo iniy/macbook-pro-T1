@@ -5,12 +5,10 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'wifi'))
 import check
-import manage
 
 
 class Diagnostics(unittest.TestCase):
@@ -73,70 +71,6 @@ class Diagnostics(unittest.TestCase):
         self.assertFalse(check.healthy(result, online=True))
         result['connectivity']['gateway_ping'] = None
         self.assertFalse(check.healthy(result, online=True))
-
-
-class Rollback(unittest.TestCase):
-    def test_settings_only_cli_never_removes_dma_driver(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            real_path = Path
-            def paths(value):
-                return real_path(tmp) / 'lock' if value == '/run/macbook-t1-wifi.lock' else real_path(value)
-            with patch.object(sys, 'argv', ['manage.py', 'uninstall', '--settings-only']), \
-                 patch.object(manage.os, 'geteuid', return_value=0), \
-                 patch.object(manage.os, 'umask'), \
-                 patch.object(manage, 'Path', side_effect=paths), patch.object(manage, 'remove') as settings, \
-                 patch.object(manage.driver, 'remove') as module:
-                manage.main()
-                settings.assert_called_once()
-                module.assert_not_called()
-
-    def test_nm_enum_names_roundtrip_to_canonical_profile_values(self):
-        for output, expected in [('default', '0'), ('disable', '2'), ('2 (disable)', '2'), ('enable', '3')]:
-            with patch.object(manage, 'run', return_value=output):
-                self.assertEqual(manage.profile_value('test-profile', '802-11-wireless.powersave'), expected)
-
-    def test_optional_bssid_roundtrip_and_clear(self):
-        # Synthetic address; never extracted from a user's network.
-        value = ':'.join(['aa'] * 6)
-        with patch.object(manage, 'run', return_value=value):
-            self.assertEqual(manage.profile_value('test-profile', '802-11-wireless.bssid'), value.upper())
-        with patch.object(manage, 'run', return_value='802-11-wireless'):
-            options = dict(profile='selected-test', powersave=None, stable_mac=None, bssid='')
-            self.assertEqual(manage.profile_changes(options), {'802-11-wireless.bssid': ''})
-
-    def restore(self, current):
-        with tempfile.TemporaryDirectory() as tmp:
-            state = Path(tmp)
-            record = {'uuid': 'test-profile', 'key': '802-11-wireless.powersave', 'old': '0', 'new': '2'}
-            (state / 'profile.json').write_text(json.dumps([record]))
-            with patch.object(manage, 'profile_value', return_value=current), patch.object(manage, 'run') as run:
-                result = manage.restore_profile(state)
-                return result, json.loads((state / 'profile.json').read_text()), run.call_args_list
-
-    def test_restores_only_owned_field(self):
-        ok, remaining, calls = self.restore('2')
-        self.assertTrue(ok)
-        self.assertFalse(remaining)
-        self.assertEqual(calls[0].args[-2:], ('802-11-wireless.powersave', '0'))
-
-    def test_later_user_edit_survives(self):
-        ok, remaining, calls = self.restore('3')
-        self.assertFalse(ok)
-        self.assertEqual(len(remaining), 1)
-        self.assertFalse(calls)
-
-    def test_write_ahead_record_without_modification_is_safe(self):
-        ok, remaining, calls = self.restore('0')
-        self.assertTrue(ok)
-        self.assertFalse(remaining)
-        self.assertFalse(calls)
-
-    def test_default_payload_does_not_override_radio_or_security(self):
-        opts = dict(country=None, disable_offload=None, roamoff=None, profile=None,
-                    powersave=None, stable_mac=None)
-        files = manage.payload(opts)
-        self.assertTrue(all('modprobe' not in name and 'firmware' not in name for name in files))
-        self.assertEqual(manage.profile_changes(opts), {})
 
 
 if __name__ == '__main__':

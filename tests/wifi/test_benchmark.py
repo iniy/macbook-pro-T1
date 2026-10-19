@@ -9,7 +9,6 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'wifi'))
 import benchmark
 import country
-import manage
 
 
 class Measurements(unittest.TestCase):
@@ -31,12 +30,6 @@ class Measurements(unittest.TestCase):
              patch.object(country.subprocess, 'run') as run:
             country.main()
             run.assert_not_called()
-
-    def test_band_selection_changes_only_the_selected_wireless_field(self):
-        options = dict(profile='selected-test', powersave=None, stable_mac=None, band='bg')
-        with patch.object(manage, 'run', return_value='802-11-wireless'):
-            self.assertEqual(manage.profile_changes(options), {'802-11-wireless.band': 'bg'})
-
 
 if __name__ == '__main__':
     unittest.main()

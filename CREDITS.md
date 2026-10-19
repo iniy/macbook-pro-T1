@@ -12,8 +12,9 @@ assembled:
 **Commit used as reference:**
 `35dd57c5b2b0fc8f76af5c6c2a45ead010692421`
 
-The 5 GHz BCM43602 approach, `fixed_regdom` reasoning, GB/3 capability-table
-finding, board-data reference and DKMS structure were adapted from this work.
+The 5 GHz BCM43602 investigation, model-matched board-data reference and DKMS
+structure informed this work. The current rebuild retains native country handling;
+the earlier foreign-country table and regulatory-guard patches were removed.
 The Ubuntu implementation here is independently adapted and does not run the
 original installer. Its original MIT/ISC boundaries remain applicable to the
 corresponding upstream material.

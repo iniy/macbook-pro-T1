@@ -5,7 +5,7 @@ One-shot setup for the late-2016 MacBook Pro 13,2 on Ubuntu 26.10:
 * Apple T1 Touch Bar and keyboard integration
 * CS8409 internal speakers, headphones and microphone
 * FaceTime HD camera through Ubuntu `uvcvideo`
-* Optional Broadcom BCM43602 5 GHz / 80 MHz Wi-Fi
+* Broadcom BCM43602 5 GHz-only Wi-Fi
 * GNOME Bounce Keys preference
 
 Test target: Ubuntu 26.10, kernel `7.3.0-9-generic`, matching Ubuntu source and
@@ -27,7 +27,7 @@ The installer runs the existing independent installers in this order:
    and CS8409 DKMS components; camera setup remains stock UVC.
 2. `wifi/install-5ghz.sh` — builds the exact Ubuntu brcmfmac DKMS module,
    fetches the checksum-pinned board-data file, creates a high-priority 5 GHz
-   NetworkManager profile, and preserves the original profile as fallback.
+    NetworkManager profile, and disables automatic fallback to older Wi-Fi profiles.
 3. `desktop/configure.sh` — reports the three touchpad settings without changing
    them, then enables GNOME Bounce Keys with a 100 ms delay.
 
@@ -55,12 +55,13 @@ sudo ./wifi/verify-5ghz.sh
 sudo ./wifi/uninstall-5ghz.sh
 ```
 
-The 5 GHz implementation has automatic timed/boot recovery and preserves the
-previous kernel module and initramfs. It was measured on this machine at 80 MHz
-on channel 48: **316.55 Mbps download, 84.68 Mbps upload, 0% gateway loss** in
-the selected-AP short test. A 30-minute, reboot and suspend/resume test was not
-completed. 2.4 GHz fallback association was not successful with the 5 GHz
-board-data configuration.
+The Wi-Fi subsystem was restored to the original stock baseline, then rebuilt
+for **5 GHz only**. It now associates on channel 48 at 80 MHz with native India
+firmware-country handling; Wi-Fi-bound DNS/HTTPS and a deliberate reconnect pass.
+Older profiles keep their credentials with automatic fallback disabled.
+The required `brcmfmac-wcc` boot helper is explicitly included in the initramfs.
+Current measurements are in [WIFI-5GHZ-BENCHMARKS.md](WIFI-5GHZ-BENCHMARKS.md).
+Reboot/suspend acceptance is separate from live connection tests.
 
 ## Files
 
