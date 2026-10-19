@@ -222,6 +222,12 @@ Feature branch: **`feature/ubuntu-audio-camera`**. Main remains at the recorded
 base until the owner separately requests a merge. Exact upstream inputs are
 pinned above and in the source checksum manifest.
 
+Verified driver/integration implementation commit:
+**`bc5477ffbb47e04f2113bcdbe9b4859447dbbcf2`**. The feature branch was pushed
+successfully to `iniy/macbook-pro-T1`; `main` remained at the original base.
+This report and its archive checksum receive a documentation-only follow-up
+commit to record that implementation revision.
+
 The containing Git revision can be identified with
 `git log -1 --format=%H -- AUDIO-CAMERA-IMPLEMENTATION-REPORT.md`; the final
 commit and remote branch are also reported in the delivery message.
