@@ -3,6 +3,7 @@
 from contextlib import contextmanager
 from contextlib import redirect_stdout
 import importlib.util
+import hashlib
 import io
 from pathlib import Path
 import subprocess
@@ -104,6 +105,9 @@ class SleepIntegration(unittest.TestCase):
             finally:
                 events.append('restore')
 
+        def audio(_record):
+            events.append('reopen audio')
+
         def fail(*args, **kwargs):
             events.append('upstream sleep')
             raise subprocess.CalledProcessError(1, args[0])
@@ -116,10 +120,11 @@ class SleepIntegration(unittest.TestCase):
                  patch.object(WRAPPER.PM, 'selected', return_value='s2idle'), \
                  patch.object(WRAPPER.PM, 'statistics', return_value={'success': '0'}), \
                  patch.object(WRAPPER.PM, 'temporary_thunderbolt_removal', removal), \
+                 patch.object(WRAPPER.AUDIO, 'reopen_playback', audio), \
                  patch.object(WRAPPER.subprocess, 'run', side_effect=fail):
                 with self.assertRaises(subprocess.CalledProcessError):
                     WRAPPER.suspend(lambda _: None)
-        self.assertEqual(events, ['detach', 'upstream sleep', 'restore'])
+        self.assertEqual(events, ['detach', 'upstream sleep', 'reopen audio', 'restore'])
 
     def test_existing_different_configuration_is_preserved(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -194,6 +199,24 @@ class SleepIntegration(unittest.TestCase):
             dropin.write_text(legacy)
             MANAGE.install()
             self.assertEqual(dropin.read_bytes(), MANAGE.files()[dropin].read_bytes())
+
+    def test_known_wrapper_upgrade_and_rollback_preserve_previous_install(self):
+        previous = b'published previous suspend wrapper\n'
+        for fail in (None, 'systemd-analyze'):
+            with self.subTest(fail=fail), installer_host(fail_command=fail) as (root, _, _, _, _):
+                wrapper = root / 'usr/local/lib/macbook-t1-sleep/suspend.py'
+                wrapper.parent.mkdir(parents=True)
+                wrapper.write_bytes(previous)
+                with patch.object(MANAGE, 'LEGACY_WRAPPER_SHA256', hashlib.sha256(previous).hexdigest()):
+                    if fail:
+                        with self.assertRaisesRegex(RuntimeError, 'systemd-analyze failure'):
+                            MANAGE.install()
+                        self.assertEqual(wrapper.read_bytes(), previous)
+                        self.assertFalse(wrapper.with_name('audio.py').exists())
+                    else:
+                        MANAGE.install()
+                        self.assertEqual(wrapper.read_bytes(), MANAGE.files()[wrapper].read_bytes())
+                        self.assertTrue(wrapper.with_name('audio.py').is_file())
 
     def test_grub_rejects_conflicting_or_unrelated_changes(self):
         for text in (GRUB_BEFORE, GRUB_AFTER.replace('pcie_port_pm=off', 'pcie_port_pm=off pcie_port_pm=force'),

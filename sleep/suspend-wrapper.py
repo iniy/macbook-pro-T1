@@ -14,6 +14,9 @@ if not COMMON.exists():
 SPEC = importlib.util.spec_from_file_location('pm_helpers', COMMON)
 PM = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(PM)
+SPEC = importlib.util.spec_from_file_location('sleep_audio', Path(__file__).with_name('audio.py'))
+AUDIO = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(AUDIO)
 KMSG = Path('/dev/kmsg')
 
 
@@ -48,7 +51,11 @@ def suspend(record):
         (PM.POWER / 'mem_sleep').write_text('s2idle\n')
         if PM.selected((PM.POWER / 'mem_sleep').read_text()) != 's2idle':
             raise RuntimeError('Could not select s2idle; refusing suspend.')
-        subprocess.run(['/usr/lib/systemd/systemd-sleep', 'suspend'], check=True)
+        try:
+            subprocess.run(['/usr/lib/systemd/systemd-sleep', 'suspend'], check=True)
+        finally:
+            # The vendor sleep program has thawed user.slice at this point.
+            AUDIO.reopen_playback(record)
     log = PM.kernel_log().partition(marker)[2]
     after = PM.statistics()
     if ('PM: suspend entry (s2idle)' not in log or 'PM: suspend exit' not in log

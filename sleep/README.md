@@ -12,8 +12,9 @@ minute. The NVMe rule is installed and still reads back `0` after reboot.
 Configuration verification must not be treated as successful sleep/wake.
 
 A later controlled s2idle trial completed successfully. The guarded systemd
-s2idle integration is now installed on the target machine, but physical and
-normal desktop/lid/idle acceptance are still pending. The one-shot installer now
+s2idle integration is now installed on the target machine. Normal cycles returned,
+but audio failed after wake; the playback recovery described below still needs
+physical sleep/wake acceptance. The one-shot installer now
 includes the NVMe rule, the guarded s2idle integration and its required PCIe boot
 setting. `./install.sh --no-sleep` skips all three.
 
@@ -32,8 +33,9 @@ python3 sleep/manage-resume.py verify
 
 The resume manager stages `pcie_port_pm=off` in GRUB, verifies generated boot
 entries, and installs the guarded systemd suspend configuration. It preserves
-existing kernel arguments, accepts only the exact original trial drop-in as a
-migration, and rolls back managed files, the boot menu and live mode on failure.
+existing kernel arguments, accepts the exact original trial drop-in and published
+pre-audio-recovery wrapper as migrations, and rolls back managed files, the boot
+menu and live mode on failure. Other local modifications are preserved.
 It does not require the new boot setting to already be active. If a restart is
 needed, it reports that explicitly and leaves the live mode alone; normal
 suspend is refused by the runtime guard until the restart. The verification
@@ -52,6 +54,50 @@ sleep mode, desktop timeouts, lid policy, drivers and wake sources. Disabling
 one storage power state can increase power consumption; actual sleep drain
 needs measurement. No claim of a kernel or driver root cause is made from a
 truncated journal alone.
+
+## Audio recovery after normal wake
+
+On the same machine, boot `e57352cf-a465-407c-bc8f-21a894e0f546` completed three
+normal systemd s2idle cycles at 22:56, 22:59 and 23:03 IST on 21 October 2026.
+The user reported silent audio after wake. PipeWire was running, the analog
+output was unmuted, and ALSA reported a running playback PCM, but both speaker
+converters (nodes `0x02` and `0x03`) had stream ID `0`. GPIO setup remained intact.
+Closing the PipeWire sink with `pactl suspend-sink` and allowing it to reopen
+restored stream ID `1` on both converters during a quiet speech test. Transport
+success does not establish audible playback; listening confirmation is separate.
+
+The vendored driver's prepare hook only performs playback setup on the first
+prepare call, tracked by `play_init_count`. PCM cleanup/open resets that counter;
+its suspend/resume hooks do not. This explains why keeping the PCM open across
+sleep can skip programming the cleared converter stream IDs. The upstream
+[codec reset proposal](https://github.com/davidjo/snd_hda_macbookpro/pull/220)
+addresses a zero GPIO mask after loss of codec power; that signature was absent
+here, so the kernel driver has not been replaced with that patch.
+
+`audio.py` now runs after the normal `systemd-sleep` invocation has thawed users,
+including when sleep aborts. It cycles only active CS8409 analog playback sinks
+in logged-in audio sessions. Client connections, volume, mute, microphone and
+other outputs are preserved. Already suspended sinks are left alone. Session
+commands run as their own user and have a timeout; a failed suspend command still
+attempts to clear its suspension. A logged-out or restarted audio server is
+skipped during restoration. Recovery errors are reported by the suspend service.
+
+A live playback test showed that PipeWire immediately reopens the PCM when a
+client is playing, even after `pactl suspend-sink 1`. The helper therefore runs
+after wake, when that reopen resets the driver and is useful. It does not depend
+on keeping a device suspended while its clients remain active.
+
+The live recovery sequence also passed with a continuous silent PulseAudio client:
+the PCM trigger timestamp advanced, both speaker stream IDs returned to `1`,
+the client connection stayed present, and volume/mute/output-port values matched
+before and after. This test did not suspend the machine or prove audible output.
+
+The sleep installer deploys this helper, so rerunning `sudo ./install.sh` includes
+the change without rebuilding the audio driver. The narrower sleep installation
+command above also updates it. No reboot is required when the PCIe boot setting
+is already active. Validate with music playing before sleep, then resume without
+refreshing the browser; repeat with the output idle before sleep. Check both
+speaker channels and the microphone separately.
 
 ## Evidence and acceptance
 

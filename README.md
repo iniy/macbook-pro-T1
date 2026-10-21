@@ -28,7 +28,8 @@ The installer runs the existing independent installers in this order:
    and CS8409 DKMS components; camera setup remains stock UVC.
 2. `sleep/manage.sh install`, then `sleep/manage-resume.py install` — disables
    NVMe D3cold, configures `pcie_port_pm=off` in GRUB, and installs guarded s2idle
-   suspend with Thunderbolt removal/recovery. The second command runs under a
+   suspend with Thunderbolt removal/recovery and internal playback recovery.
+   The second command runs under a
    sleep/shutdown inhibitor. A fresh installation requires a restart to activate
    the boot setting; the guard refuses sleep until then. Use `--no-sleep` to skip
    all sleep and boot configuration. See [sleep diagnostics](sleep/README.md).
@@ -72,9 +73,11 @@ The required `brcmfmac-wcc` boot helper is explicitly included in the initramfs.
 Current measurements are in [WIFI-5GHZ-BENCHMARKS.md](WIFI-5GHZ-BENCHMARKS.md).
 Reboot/suspend acceptance is separate from live connection tests.
 
-The one-shot installer includes the guarded s2idle workaround. One controlled
-sleep cycle passed; normal desktop/lid/idle cycles and battery drain still need
-physical validation. Sleep is refused with storage attached under the Thunderbolt
+The one-shot installer includes the guarded s2idle workaround. Controlled and
+normal desktop cycles returned, but normal wake exposed silent internal audio.
+The wrapper now reopens the internal playback PCM after wake;
+physical audio acceptance and battery drain still need validation.
+Sleep is refused with storage attached under the Thunderbolt
 branches or with unknown PCIe devices. Installation never initiates sleep or
 reboots automatically. Evidence, verification and rollback instructions are in
 [sleep/README.md](sleep/README.md).

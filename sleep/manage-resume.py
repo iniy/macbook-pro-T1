@@ -18,6 +18,9 @@ BOOT_DROPIN = Path('etc/default/grub.d/99-macbook-t1-pcie-pm-trial.cfg')
 # Exact contents installed during the initial controlled trial. No other
 # differing local configuration may be overwritten or removed.
 LEGACY_BOOT_SHA256 = '0f85bd65fe629115db5667ed22d3163506c55f6803122a59af66da358c8a4a9c'
+# Published wrapper before playback recovery. Only this exact version may be
+# replaced automatically; preserve any local edits as before.
+LEGACY_WRAPPER_SHA256 = '5e07512470588db7f2eae16fa4d3e1a51a52db9fa1740a757c2c51aaa346b0b2'
 SPEC = importlib.util.spec_from_file_location('resume_wrapper', SOURCE / 'suspend-wrapper.py')
 WRAPPER = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(WRAPPER)
@@ -27,6 +30,7 @@ def files():
     return {
         ROOT / 'usr/local/lib/macbook-t1-sleep/pm.py': SOURCE / 'test-stages.py',
         ROOT / 'usr/local/lib/macbook-t1-sleep/suspend.py': SOURCE / 'suspend-wrapper.py',
+        ROOT / 'usr/local/lib/macbook-t1-sleep/audio.py': SOURCE / 'audio.py',
         ROOT / 'etc/systemd/sleep.conf.d/99-macbook-t1-s2idle.conf': SOURCE / '99-macbook-t1-s2idle.conf',
         ROOT / 'etc/systemd/system/systemd-suspend.service.d/99-macbook-t1-suspend.conf': SOURCE / '99-macbook-t1-suspend.conf',
         ROOT / BOOT_DROPIN: SOURCE / '99-macbook-t1-pcie-pm-trial.cfg',
@@ -42,7 +46,11 @@ def check_paths():
         if any(parent.is_symlink() for parent in (target, *target.parents)):
             raise RuntimeError('Refusing symlink in managed path: ' + str(target))
         if target.exists() and target.read_bytes() != source.read_bytes():
-            if target != ROOT / BOOT_DROPIN or hashlib.sha256(target.read_bytes()).hexdigest() != LEGACY_BOOT_SHA256:
+            legacy = {
+                ROOT / BOOT_DROPIN: LEGACY_BOOT_SHA256,
+                ROOT / 'usr/local/lib/macbook-t1-sleep/suspend.py': LEGACY_WRAPPER_SHA256,
+            }
+            if hashlib.sha256(target.read_bytes()).hexdigest() != legacy.get(target):
                 raise RuntimeError('Existing file differs; preserving it: ' + str(target))
 
 
