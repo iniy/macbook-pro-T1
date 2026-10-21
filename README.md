@@ -25,16 +25,20 @@ The installer runs the existing independent installers in this order:
 
 1. `install-ubuntu.sh --touchbar --audio --camera` — builds or reuses the T1
    and CS8409 DKMS components; camera setup remains stock UVC.
-2. `wifi/install-5ghz.sh` — builds the exact Ubuntu brcmfmac DKMS module,
+2. `sleep/manage.sh install` — disables PCI D3cold for Apple's NVMe controller
+   on this model to support reliable resume from lid, idle and manual suspend.
+   Use `--no-sleep` to skip this step.
+3. `wifi/install-5ghz.sh` — builds the exact Ubuntu brcmfmac DKMS module,
    fetches the checksum-pinned board-data file, creates a high-priority 5 GHz
     NetworkManager profile, and disables automatic fallback to older Wi-Fi profiles.
-3. `desktop/configure.sh` — reports the three touchpad settings without changing
+4. `desktop/configure.sh` — reports the three touchpad settings without changing
    them, then enables GNOME Bounce Keys with a 100 ms delay.
 
 Useful options:
 
 ```bash
 ./install.sh --plan
+sudo ./install.sh --no-sleep
 sudo ./install.sh --activate-wifi       # requires independent Ethernet
 sudo ./install.sh --wifi-profile UUID   # choose a saved WPA2 profile
 sudo ./install.sh --no-install-deps
@@ -62,6 +66,9 @@ Older profiles keep their credentials with automatic fallback disabled.
 The required `brcmfmac-wcc` boot helper is explicitly included in the initramfs.
 Current measurements are in [WIFI-5GHZ-BENCHMARKS.md](WIFI-5GHZ-BENCHMARKS.md).
 Reboot/suspend acceptance is separate from live connection tests.
+
+The one-shot installer includes the Apple NVMe sleep workaround. Its evidence,
+verification and rollback instructions are in [sleep/README.md](sleep/README.md).
 
 ## Files
 

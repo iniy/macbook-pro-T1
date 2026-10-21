@@ -18,11 +18,12 @@ spec.loader.exec_module(module)
 
 class OneShot(unittest.TestCase):
     def test_default_routes_all_hardware_and_desktop_without_live_reset(self):
-        args = argparse.Namespace(no_install_deps=False, no_wifi=False, no_desktop=False,
+        args = argparse.Namespace(no_install_deps=False, no_sleep=False, no_wifi=False, no_desktop=False,
                                   wifi_profile=None, activate_wifi=False)
         commands = [cmd for _, cmd in module.commands(args)]
         self.assertEqual([Path(cmd[1]).name for cmd in commands],
-                         ['install-ubuntu.sh', 'install-5ghz.sh', 'configure.sh'])
+                         ['install-ubuntu.sh', 'manage.sh', 'install-5ghz.sh', 'configure.sh'])
+        self.assertEqual(commands[1][-1], 'install')
         self.assertTrue(all(flag in commands[0] for flag in ['--touchbar', '--audio', '--camera']))
         self.assertFalse(any(flag in cmd for cmd in commands for flag in ['--activate', '--update', '--uninstall']))
 

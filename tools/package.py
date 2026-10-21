@@ -14,7 +14,7 @@ FILES += ['WIFI-5GHZ-IMPLEMENTATION.md', 'WIFI-5GHZ-BENCHMARKS.md', 'WIFI-5GHZ-R
 FILES += ['install-audio.sh', 'verify-audio.sh', 'uninstall-audio.sh',
           'install-camera.sh', 'verify-camera.sh', 'uninstall-camera.sh',
           'install-wifi.sh', 'verify-wifi.sh', 'uninstall-wifi.sh']
-DIRS = ['driver', 'patches', 'lib', 'config', 'tests', 'audio', 'camera', 'wifi', 'desktop']
+DIRS = ['driver', 'patches', 'lib', 'config', 'tests', 'audio', 'camera', 'wifi', 'desktop', 'sleep']
 TOOLS = ['tools/package.py', 'tools/capture-macos.py', 'tools/validate-linux.sh',
          'tools/test-macos.py', 'tools/prepare-vm.py', 'tools/run-vm.sh',
          'tools/vm-ssh.sh', 'tools/qemu-launch.c', 'tools/hypervisor.entitlements']

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""One entry point for the existing T1, audio, camera, 5 GHz and GNOME components."""
+"""One entry point for the MacBookPro13,2 hardware, sleep, Wi-Fi and desktop setup."""
 import argparse
 import os
 from pathlib import Path
@@ -17,6 +17,8 @@ def commands(args):
     if not args.no_install_deps:
         hardware.append('--install-deps')
     yield 'Touch Bar, audio and camera', hardware
+    if not args.no_sleep:
+        yield 'Apple NVMe suspend workaround', ['bash', str(ROOT / 'sleep/manage.sh'), 'install']
     if not args.no_wifi:
         wifi = ['bash', str(ROOT / 'wifi/install-5ghz.sh')]
         if not args.no_install_deps:
@@ -35,6 +37,7 @@ def main():
     parser.add_argument('--plan', action='store_true', help='Show commands without changing the system')
     parser.add_argument('--no-install-deps', action='store_true', help='Use already-installed build/runtime dependencies')
     parser.add_argument('--no-wifi', action='store_true')
+    parser.add_argument('--no-sleep', action='store_true', help='Skip the Apple NVMe suspend/resume workaround')
     parser.add_argument('--no-desktop', action='store_true', help='Skip GNOME settings, e.g. on a headless system')
     parser.add_argument('--wifi-profile', help='Existing trusted WPA2 profile UUID; otherwise discover the active/only saved profile')
     parser.add_argument('--activate-wifi', action='store_true', help='Activate a new Wi-Fi installation with timed rollback; requires Ethernet')

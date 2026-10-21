@@ -39,6 +39,16 @@ The Apple CS8409 audio implementation and speaker/headphone/microphone support
 are based on this project. The GPL license and upstream source notices remain
 under `audio/upstream/` and `audio/kernel-source/`.
 
+## 4. Suspend/resume research: Dunedan
+
+**Repository:** https://github.com/Dunedan/mbp-2016-linux
+
+The MacBookPro13,2 Apple NVMe D3cold resume workaround follows the hardware-
+specific guidance in the repository's [Suspend & Hibernation
+notes](https://github.com/Dunedan/mbp-2016-linux#suspend--hibernation). The
+model-checked udev rule and installer integration in this repository are
+independently implemented.
+
 ## License rule for this repository
 
 Original integration code, scripts, tests, documentation and original AI-created

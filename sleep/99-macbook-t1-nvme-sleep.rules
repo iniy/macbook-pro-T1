@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Apple S3X loses resume reliability when allowed to enter PCI D3cold.
+# Restrict this workaround to the supported MacBookPro13,2 and Apple 106b:2003.
+# https://github.com/Dunedan/mbp-2016-linux#suspend--hibernation
+ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x106b", ATTR{device}=="0x2003", PROGRAM=="/usr/bin/cat /sys/class/dmi/id/product_name", RESULT=="MacBookPro13,2", TEST=="d3cold_allowed", ATTR{d3cold_allowed}="0"
