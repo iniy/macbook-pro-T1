@@ -19,6 +19,10 @@ def commands(args):
     yield 'Touch Bar, audio and camera', hardware
     if not args.no_sleep:
         yield 'Apple NVMe suspend workaround', ['bash', str(ROOT / 'sleep/manage.sh'), 'install']
+        yield 'Guarded s2idle and PCIe boot configuration', [
+            'systemd-inhibit', '--what=sleep:shutdown', '--mode=block',
+            '--why=Configure MacBook suspend support',
+            'python3', str(ROOT / 'sleep/manage-resume.py'), 'install']
     if not args.no_wifi:
         wifi = ['bash', str(ROOT / 'wifi/install-5ghz.sh')]
         if not args.no_install_deps:
@@ -37,7 +41,8 @@ def main():
     parser.add_argument('--plan', action='store_true', help='Show commands without changing the system')
     parser.add_argument('--no-install-deps', action='store_true', help='Use already-installed build/runtime dependencies')
     parser.add_argument('--no-wifi', action='store_true')
-    parser.add_argument('--no-sleep', action='store_true', help='Skip the Apple NVMe suspend/resume workaround')
+    parser.add_argument('--no-sleep', action='store_true',
+                        help='Skip NVMe, guarded s2idle and PCIe boot configuration')
     parser.add_argument('--no-desktop', action='store_true', help='Skip GNOME settings, e.g. on a headless system')
     parser.add_argument('--wifi-profile', help='Existing trusted WPA2 profile UUID; otherwise discover the active/only saved profile')
     parser.add_argument('--activate-wifi', action='store_true', help='Activate a new Wi-Fi installation with timed rollback; requires Ethernet')
@@ -59,6 +64,9 @@ def main():
             return result.returncode
     print('All selected components are installed/configured. Existing completed installations were preserved.')
     print('No automatic reboot was requested. Newly staged kernel drivers take effect on reboot.')
+    if not args.no_sleep:
+        print('Sleep configuration is installed; restart if the sleep installer reported a pending boot setting.')
+        print('Normal suspend is guarded against attached storage. Physical sleep/wake and battery drain need validation.')
     return 0
 
 
