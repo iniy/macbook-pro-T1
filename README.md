@@ -73,10 +73,11 @@ The required `brcmfmac-wcc` boot helper is explicitly included in the initramfs.
 Current measurements are in [WIFI-5GHZ-BENCHMARKS.md](WIFI-5GHZ-BENCHMARKS.md).
 Reboot/suspend acceptance is separate from live connection tests.
 
-The one-shot installer includes the guarded s2idle workaround. Controlled and
-normal desktop cycles returned, but normal wake exposed silent internal audio.
-The wrapper now reopens the internal playback PCM after wake;
-physical audio acceptance and battery drain still need validation.
+The one-shot installer includes the guarded s2idle workaround and reopens the
+internal playback PCM after wake. On **21 October 2026**, the user confirmed
+successful sleep/wake with audio working after installing this recovery. The
+normal suspend service also logged successful audio and controller recovery.
+Long-term reliability and sleep battery drain have not been measured.
 Sleep is refused with storage attached under the Thunderbolt
 branches or with unknown PCIe devices. Installation never initiates sleep or
 reboots automatically. Evidence, verification and rollback instructions are in

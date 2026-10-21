@@ -12,9 +12,10 @@ minute. The NVMe rule is installed and still reads back `0` after reboot.
 Configuration verification must not be treated as successful sleep/wake.
 
 A later controlled s2idle trial completed successfully. The guarded systemd
-s2idle integration is now installed on the target machine. Normal cycles returned,
-but audio failed after wake; the playback recovery described below still needs
-physical sleep/wake acceptance. The one-shot installer now
+s2idle integration and audio recovery are now installed on the target machine.
+On **21 October 2026**, the user confirmed that the latest sleep/wake test worked
+well, including audio. The normal suspend journal also records successful
+playback and controller recovery. The one-shot installer now
 includes the NVMe rule, the guarded s2idle integration and its required PCIe boot
 setting. `./install.sh --no-sleep` skips all three.
 
@@ -55,6 +56,28 @@ one storage power state can increase power consumption; actual sleep drain
 needs measurement. No claim of a kernel or driver root cause is made from a
 truncated journal alone.
 
+## Confirmed sleep/wake result, 21 October 2026
+
+**Passed on the tested MacBookPro13,2, Ubuntu 26.10, kernel `7.3.0-9-generic`,
+with the audio recovery from commit `ec66c06`.** After testing the installed
+changes, the user reported: "i just tested, everything works well !"
+This confirms the reported wake/audio regression is resolved in that test.
+
+The corresponding normal systemd suspend cycle is recorded on boot
+`e57352cf-a465-407c-bc8f-21a894e0f546` (times in IST):
+
+| Time | Recorded result |
+|---|---|
+| 23:20:53 | Kernel entered `s2idle` through the managed suspend service. |
+| 23:21:05 | Kernel recorded suspend exit; systemd thawed the user sessions. |
+| 23:21:06 | The wrapper reopened internal playback for the active user. |
+| 23:21:07 | All four NHI/xHCI controllers returned with their expected drivers; the suspend service completed successfully. |
+
+The confirmation applies to this tested cycle. It does not establish separate
+lid/idle, AC/battery, headphone/microphone or external-peripheral test coverage,
+long-term reliability, or sleep battery drain. Earlier failures below remain as
+the investigation history; they do not describe the current acceptance result.
+
 ## Audio recovery after normal wake
 
 On the same machine, boot `e57352cf-a465-407c-bc8f-21a894e0f546` completed three
@@ -64,7 +87,8 @@ output was unmuted, and ALSA reported a running playback PCM, but both speaker
 converters (nodes `0x02` and `0x03`) had stream ID `0`. GPIO setup remained intact.
 Closing the PipeWire sink with `pactl suspend-sink` and allowing it to reopen
 restored stream ID `1` on both converters during a quiet speech test. Transport
-success does not establish audible playback; listening confirmation is separate.
+success alone did not establish audible playback. The subsequent user-confirmed
+sleep/wake result above supplies the physical confirmation for the final fix.
 
 The vendored driver's prepare hook only performs playback setup on the first
 prepare call, tracked by `play_init_count`. PCM cleanup/open resets that counter;
@@ -132,9 +156,9 @@ After installation, save open work before testing:
 journalctl -b -k --no-pager -g 'PM: suspend|nvme|Touchbar'
 ```
 
-A configuration check is not a physical sleep/wake test. Hardware acceptance
-has failed on this machine; it remains unresolved until actual cycles succeed.
-If it still freezes, inspect
+A configuration check is not a physical sleep/wake test. The NVMe-only workaround
+failed hardware acceptance; the later combined s2idle/audio recovery passed the
+user's test recorded above. If a future cycle freezes, inspect
 the previous boot (`journalctl -b -1 -k`) and diagnose the next failing layer;
 do not stack unrelated kernel parameters or disable sleep as a claimed fix.
 
@@ -339,9 +363,9 @@ The resume manager now owns this boot setting and removes it together with the
 suspend wrapper. Do not remove only the boot setting while retaining the wrapper:
 its guard would then refuse sleep after reboot. The NVMe rule is independent.
 
-No automatic reboot or actual sleep is initiated. Real sleep/wake and physical
-audio, Wi-Fi and USB acceptance remain outstanding. No Thunderbolt sleep hook
-has been installed.
+At this stage, no automatic reboot or actual sleep had been initiated, and real
+sleep/wake and physical device acceptance remained outstanding. No Thunderbolt
+sleep hook had been installed. Later results follow below.
 
 ### Results with PCIe port power management disabled
 
@@ -393,13 +417,15 @@ investigation log directory.
 Afterward, Wi-Fi was connected at 5220 MHz, and HTTPS bound to `wlp2s0` returned
 HTTP 204 from Ubuntu's connectivity endpoint. The Touch Bar logged resume,
 the analog audio sink remained present, and all three user audio services were
-active. The user's physical confirmation of automatic wake, screen, keyboard,
-Touch Bar and sound is still pending; software enumeration alone is insufficient.
+active. Physical confirmation was still pending at this stage; software
+enumeration alone was insufficient. The later normal-path result with audio
+recovery is confirmed above.
 The helper cleared its RTC alarm and restored `deep`, `pm_test=none` and zero
 debug flags. This one successful kernel trial does not enable normal lid sleep.
 
 The normal-suspend integration in `suspend-wrapper.py` and the two systemd
-configuration snippets is **installed, awaiting normal-path acceptance**. It replaces the
+configuration snippets is **installed and user-confirmed with audio recovery**.
+It replaces the
 suspend service command with a guarded wrapper around the original
 `/usr/lib/systemd/systemd-sleep suspend`, preserving the normal systemd sleep
 program and hooks. It validates the model, port-PM boot parameter, NVMe setting,
@@ -439,9 +465,11 @@ one-shot integration also manages the GRUB drop-in and was checked with isolated
 filesystem fixtures; the complete hardware installer was not rerun for that
 code change.
 
-Installation did not initiate another sleep or reboot. Acceptance through normal desktop
-suspend, lid close, idle timeout, repeated cycles and a subsequent reboot remains
-separate. Battery drain has not been measured. Remove the integration with:
+Installation did not initiate another sleep or reboot. The user subsequently
+confirmed the normal suspend/wake result with audio recovery, as recorded above.
+Separate lid-close/idle-timeout coverage, repeated cycles and a subsequent reboot
+have not been established for the final fix. Battery drain has not been measured.
+Remove the integration with:
 
 ```bash
 sudo systemd-inhibit --what=sleep:shutdown --mode=block \
