@@ -1,0 +1,28 @@
+# Touch ID change log
+
+## 2026-10-22 — development integration, not promoted
+
+- Recorded baseline revision `ffa6df7`, kernel and drivers; the initial checkout
+  was clean. Created a dedicated `codex/touchid-integration` branch.
+- Preserved root-only system-configuration, EFI and boot-image backups locally.
+- Pinned T1Bridge 0.1.12 and its matching libfprint/fprintd source revisions.
+- Added read-only preflight, distribution dependency adapters, source build and
+  private-bundle lifecycle code, acceptance reporting in the default installer,
+  and failure-path tests.
+- Added a minimal GNU linker-order patch, build umask control, exact-ABI DKMS
+  staging and upstream notices. No biometric protocol was rewritten.
+- Kept driver replacement, PAM activation and default installation gated. Full
+  physical and one-shot Touch ID acceptance remain incomplete.
+
+See TOUCHID-IMPLEMENTATION.md for the original limitations and precise changes,
+TOUCHID-TEST-RESULTS.md for evidence, and the patch directory for an auditable
+upstream delta. No success is inferred from a compiled binary or started service.
+
+- Built and installed a private matched fingerprint stack; verified removal and
+  reinstall without replacing distribution libraries or PAM.
+- Added a conditional, separate-image one-boot Ubuntu trial, original desktop
+  provider, and source-lock-checked fingerprint packaging patches.
+- Validated real pre-boot staging, rollback and restaging. Normal boot-file
+  hashes stayed unchanged. The normal installer repeat run passed.
+- Runtime Rust: 1,046 pass / 3 ignored; libfprint: 98 pass / 33 unrelated-driver
+  skips; fprintd/PAM: 560 pass. Physical and reboot acceptance remain pending.

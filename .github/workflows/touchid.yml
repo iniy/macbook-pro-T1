@@ -1,0 +1,48 @@
+name: Touch ID integration
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  policy-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [ubuntu:24.04, debian:bookworm, fedora:latest, archlinux:base]
+    container: ${{ matrix.image }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Install Python in the disposable test container
+        shell: bash
+        run: |
+          if command -v apt-get; then
+            apt-get update
+            apt-get install -y python3
+          elif command -v dnf; then
+            dnf install -y python3
+          else
+            pacman -Syu --noconfirm python
+          fi
+      - run: python3 -m unittest discover -s tests -p test_touchid.py -v
+      - run: python3 tests/test_one_shot.py
+
+  source-build:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    container: ubuntu:26.10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Build dependencies
+        run: |
+          apt-get update
+          apt-get install -y python3
+          python3 touchid/manage.py dependencies --userspace-only --install-deps
+          useradd -m builder
+          chown -R builder .
+      - name: Build and test without hardware or privilege
+        run: runuser -u builder -- python3 touchid/manage.py build --userspace-only --work sources/ci-touchid

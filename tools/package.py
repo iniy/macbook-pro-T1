@@ -11,10 +11,13 @@ VERSION = '1.0.0'
 FILES = ['install.sh', 'install-ubuntu.sh', 'verify-ubuntu.sh', 'uninstall-ubuntu.sh', 'CREDITS.md',
           'README.md', 'LICENSE']
 FILES += ['WIFI-5GHZ-IMPLEMENTATION.md', 'WIFI-5GHZ-BENCHMARKS.md', 'WIFI-5GHZ-RECOVERY.md']
+FILES += ['THIRD_PARTY_NOTICES.md', 'TOUCHID-UPSTREAM-ATTRIBUTION.md',
+          'TOUCHID-PORTABILITY.md', 'TOUCHID-IMPLEMENTATION.md', 'TOUCHID-CHANGELOG.md',
+          'TOUCHID-TEST-RESULTS.md', 'TOUCHID-RECOVERY.md']
 FILES += ['install-audio.sh', 'verify-audio.sh', 'uninstall-audio.sh',
           'install-camera.sh', 'verify-camera.sh', 'uninstall-camera.sh',
           'install-wifi.sh', 'verify-wifi.sh', 'uninstall-wifi.sh']
-DIRS = ['driver', 'patches', 'lib', 'config', 'tests', 'audio', 'camera', 'wifi', 'desktop', 'sleep']
+DIRS = ['driver', 'patches', 'lib', 'config', 'tests', 'audio', 'camera', 'wifi', 'desktop', 'sleep', 'touchid']
 TOOLS = ['tools/package.py', 'tools/capture-macos.py', 'tools/validate-linux.sh',
          'tools/test-macos.py', 'tools/prepare-vm.py', 'tools/run-vm.sh',
          'tools/vm-ssh.sh', 'tools/qemu-launch.c', 'tools/hypervisor.entitlements']

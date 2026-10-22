@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "t1bridge": {
+    "url": "https://github.com/standardagents/t1bridge.git",
+    "commit": "81cbdf81026a16e02f0bea74735c6b029a8ffae2",
+    "version": "0.1.12"
+  },
+  "libfprint": {
+    "commit": "3f1e2817ed01660d0b422a0283effc0e5d3e4b80",
+    "version": "1.94.100",
+    "url": "https://gitlab.freedesktop.org/libfprint/libfprint/-/archive/3f1e2817ed01660d0b422a0283effc0e5d3e4b80/libfprint-3f1e2817ed01660d0b422a0283effc0e5d3e4b80.tar.gz",
+    "sha256": "e892f6b938c61db1956614cc143f3ad14f09b84808c790c2affe090854e540e4"
+  },
+  "fprintd": {
+    "commit": "b54a007ccf58ac0ae074c7151b223f35cbd17306",
+    "version": "1.94.5",
+    "url": "https://gitlab.freedesktop.org/libfprint/fprintd/-/archive/b54a007ccf58ac0ae074c7151b223f35cbd17306/fprintd-b54a007ccf58ac0ae074c7151b223f35cbd17306.tar.gz",
+    "sha256": "26be694733389ad615a93da2803aba57bcb05a0cceca2e814b2075aae9d80cfb"
+  },
+  "prefix": "/opt/macbook-t1-touchid/0.1.12-81cbdf8",
+  "integration_version": "0.1.0",
+  "integration_patches": {
+    "0001-link-native-dependencies-after-static-archive.patch": "be151d1b335c8a2228206914edd45824bc80165269d310789130a8a8c64030f7"
+  },
+  "fprintd_patches": {
+    "0001-honor-private-prefix-for-policy-data.patch": "7167a78a1c5de8ccc0065bf265441f7988d8567ba9d68818e4188508c28c3a9e"
+  },
+  "libfprint_patches": {
+    "0001-include-usb-presence-in-appstream-metadata.patch": "6354f30bdb288338fe8bb806e4a44522fe3738a38b0179cee00b6dc120ea5b7a"
+  }
+}

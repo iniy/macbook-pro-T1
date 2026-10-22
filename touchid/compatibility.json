@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "validated": [],
+  "build_tested": [
+    {
+      "model": "MacBookPro13,2",
+      "arch": "x86_64",
+      "distro": "ubuntu",
+      "version": "26.10",
+      "kernel": "7.3.0-9-generic",
+      "upstream_commit": "81cbdf81026a16e02f0bea74735c6b029a8ffae2",
+      "scope": "Runtime and kernel compilation plus automated tests; physical acceptance pending"
+    }
+  ],
+  "note": "No configuration has passed this project's full physical acceptance matrix. Default installer only reports readiness until promotion."
+}

@@ -1,0 +1,92 @@
+# Touch ID recovery
+
+## Current branch
+
+The default installer only reports acceptance. The attended development trial
+has now been staged separately. It uses a copied module tree and an additional
+initramfs, leaving the normal kernel, normal initramfs, GRUB configuration and
+installed module tree intact. GRUB's `next_entry` selects the trial once and is
+cleared by the bootloader. A subsequent ordinary restart returns to the baseline.
+The trial has no newly enabled PAM rule.
+
+If the trial fails to boot or the desktop is unusable, restart the machine again;
+the one-time selection should have been consumed. The normal Ubuntu entry remains
+available from GRUB. Do not repeat the trial or attempt live USB resets as a repair.
+Boot fallback itself still needs physical confirmation.
+
+To cancel an armed trial **before reboot**, or clean up after returning to a normal
+boot, use:
+
+```sh
+sudo python3 touchid/manage.py rollback-trial
+```
+
+Rollback disables only the trial units, restores its journaled files, clears its
+own pending boot choice, removes the trial image and DKMS build registration,
+and reverses only the added user group membership. It retains private recovery
+records and all calibration/biometric state. It refuses hot rollback while booted
+with `t1bridge.trial=1`: first return to the normal boot. Staging/rollback/restaging
+have been tested before boot; removal after hardware use has not.
+
+Remove the private bundle with:
+
+```sh
+sudo python3 touchid/manage.py remove-bundle
+```
+
+Removal verifies the manifest and refuses to delete modified files or a bundle
+referenced by systemd/PAM/D-Bus configuration. Inspect a reported conflict; do not
+force removal. Removal never deletes EFI, `/var/lib/t1bridge`, fingerprint records,
+existing drivers, or build dependencies. Reinstallation of an identical bundle is
+safe; a different/edited bundle requires deliberate review rather than overwrite.
+
+The local baseline is in `/var/backups/macbook-t1-touchid/baseline-20261022`, mode
+0700, with configuration archive, driver/package inventory, EFI `EMBEDDEDOS`
+backup, and the current kernel/initramfs copies. These are private machine-local
+backups, **not an off-device disaster-recovery backup**. The archive reported one
+absent legacy state directory (`/var/lib/macbook-t1-sleep`); the actual sleep
+configuration under `/etc/systemd/system` and boot configuration was captured.
+Do not publish or upload this directory. No credential is stored in project code.
+
+## Trial invariants and remaining validation
+
+1. Preserve a tested boot/recovery route using the saved kernel/initramfs and
+   configuration, with accessible local password login and a root recovery shell.
+2. Inventory all overrides and DKMS owners. The legacy firmware-mode drivers
+   cannot run together with T1Bridge's configuration-2 stack. Do not hot-unbind,
+   deauthorize, reset or reload the live T1 to avoid a reboot.
+3. The pre-boot transaction and inverse pass; validate them after hardware use. Keep
+   the current sleep wrapper and audio recovery intact. Verify camera format
+   compatibility and Touch Bar desktop media/volume controls.
+4. Confirm the normal boot fallback during physical testing. Do not mark
+   rollback validated just because a backup exists or a mock test passed.
+
+## Missing Apple machine data
+
+The upstream importer requires this Mac's
+`EFI/APPLE/EMBEDDEDOS/FDRData`. Presence is not proof of validity; import must
+match it to the live sensor. Use preserved local EFI or an explicitly selected
+same-Mac backup. Never use donor data or fabricated records. An unreadable source
+is not proof it was lost.
+
+When the live T1Bridge stack is eventually validated, upstream's local command is:
+
+```sh
+sudo /opt/macbook-t1-touchid/0.1.12-81cbdf8/bin/t1bridge machine-data import --from /absolute/path/to/same-mac-backup
+```
+
+Do not run that command as a fix for the currently conflicting driver stack.
+Upstream documents restoring macOS on this machine through a complete first boot
+as a way to regenerate lost data. That can erase Linux; it requires separate
+backup and deliberate recovery planning. This installer never restores macOS,
+formats partitions, or invokes upstream's experimental online recovery.
+
+## Authentication safeguards
+
+Keep PAM unchanged until independent enrollment, correct-finger matching and
+incorrect-finger rejection succeed. Use distribution-supported pam_fprintd
+integration per consumer with bounded attempts/timeouts and working password
+fallback. Test unavailable module, broker, device and socket conditions. GNOME,
+GDM and sudo require separate evidence. The GDM password path must remain intact.
+Before removing any future active stack, restore and verify password login first,
+then reverse the journaled service and driver changes and rebuild the initramfs.

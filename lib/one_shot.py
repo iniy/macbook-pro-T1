@@ -34,6 +34,10 @@ def commands(args):
         yield '5 GHz Wi-Fi', wifi
     if not args.no_desktop:
         yield 'GNOME user settings', ['bash', str(ROOT / 'desktop/configure.sh')]
+    if getattr(args, 'touchid_trial', False):
+        yield 'Attended one-boot Touch ID trial', ['python3', str(ROOT / 'touchid/manage.py'), 'trial']
+    else:
+        yield 'Touch ID compatibility and acceptance', ['python3', str(ROOT / 'touchid/manage.py'), 'auto']
 
 
 def main():
@@ -46,6 +50,8 @@ def main():
     parser.add_argument('--no-desktop', action='store_true', help='Skip GNOME settings, e.g. on a headless system')
     parser.add_argument('--wifi-profile', help='Existing trusted WPA2 profile UUID; otherwise discover the active/only saved profile')
     parser.add_argument('--activate-wifi', action='store_true', help='Activate a new Wi-Fi installation with timed rollback; requires Ethernet')
+    parser.add_argument('--touchid-trial', action='store_true',
+                        help='Development only: stage a one-boot T1Bridge trial from the verified private bundle')
     args = parser.parse_args()
     if args.no_wifi and (args.wifi_profile or args.activate_wifi):
         parser.error('--no-wifi cannot be combined with Wi-Fi installation options')
@@ -62,7 +68,7 @@ def main():
         if result.returncode:
             print('Stopped at: ' + label + '. Completed components are preserved; fix the reported issue and rerun.', flush=True)
             return result.returncode
-    print('All selected components are installed/configured. Existing completed installations were preserved.')
+    print('Selected baseline components are installed/configured. See the separate Touch ID acceptance result above.')
     print('No automatic reboot was requested. Newly staged kernel drivers take effect on reboot.')
     if not args.no_sleep:
         print('Sleep configuration is installed; restart if the sleep installer reported a pending boot setting.')

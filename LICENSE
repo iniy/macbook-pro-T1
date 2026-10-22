@@ -34,6 +34,11 @@ licenses, as marked by their source files:
 * `audio/`: GPL-2.0-only / GPL-2.0-or-later; see `audio/upstream/LICENSE` and
   the included kernel license texts.
 * `wifi/dkms/`: ISC; see `wifi/dkms/LICENSE.ISC` and source SPDX headers.
+* Touch ID source fetched by `touchid/build.py`: T1Bridge MIT, dual MIT/GPL
+  configuration/network drivers, GPL DRM/UVC drivers, LGPL libfprint and GPL
+  fprintd. Local patches retain the licenses of the files they modify. See
+  `touchid/upstream-notices/`, `THIRD_PARTY_NOTICES.md` and
+  `TOUCHID-UPSTREAM-ATTRIBUTION.md`; renderer asset MIT/OFL terms also apply.
 
 Ubuntu's Broadcom firmware is downloaded from Ubuntu at installation time and
 is not included or redistributed by this repository. Community board data is

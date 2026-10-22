@@ -1,0 +1,22 @@
+--- a/libfprint/fprint-list-metainfo.c
++++ b/libfprint/fprint-list-metainfo.c
+@@ -57,7 +57,8 @@
+ {
+   const FpIdEntry *entry;
+ 
+-  if (cls->type != FP_DEVICE_TYPE_USB)
++  if (cls->type != FP_DEVICE_TYPE_USB &&
++      cls->type != FP_DEVICE_TYPE_USB_PRESENCE)
+     return;
+ 
+   for (entry = cls->id_table; entry->vid != 0; entry++)
+@@ -87,7 +88,8 @@
+       GType driver = g_array_index (drivers, GType, i);
+       g_autoptr(FpDeviceClass) cls = g_type_class_ref (driver);
+ 
+-      if (cls->type != FP_DEVICE_TYPE_USB)
++      if (cls->type != FP_DEVICE_TYPE_USB &&
++      cls->type != FP_DEVICE_TYPE_USB_PRESENCE)
+         continue;
+ 
+       usb_driver_devices_append (devices_list, cls);

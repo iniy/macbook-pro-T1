@@ -1,0 +1,28 @@
+diff --git a/crates/t1-platform/build.rs b/crates/t1-platform/build.rs
+index 3995128..114dbc7 100644
+--- a/crates/t1-platform/build.rs
++++ b/crates/t1-platform/build.rs
+@@ -120,9 +120,6 @@ fn compile_recovery(objects: &mut Vec<PathBuf>, compiler: &OsStr, manifest: &Pat
+             &output.join(format!("{name}.o")),
+         ));
+     }
+-    for library in ["curl", "archive", "crypto", "udev"] {
+-        println!("cargo:rustc-link-lib={library}");
+-    }
+ }
+ 
+ fn compile_usb_cycle_guard(
+@@ -166,6 +163,13 @@ fn link_native(
+     if preserved_efi_discovery {
+         println!("cargo:rustc-link-lib=udev");
+     }
++    // GNU ld --as-needed must see the native archive's unresolved symbols
++    // before its dynamic dependencies, including in the all-feature test link.
++    if env::var_os("CARGO_FEATURE_ONLINE_RECOVERY").is_some() {
++        for library in ["curl", "archive", "crypto", "udev"] {
++            println!("cargo:rustc-link-lib={library}");
++        }
++    }
+ }
+ 
+ fn compile_sep_operation(

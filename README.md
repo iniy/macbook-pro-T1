@@ -12,6 +12,14 @@ One-shot setup for the late-2016 MacBook Pro 13,2 on Ubuntu 26.10:
 Test target: Ubuntu 26.10, kernel `7.3.0-9-generic`, matching Ubuntu source and
 headers `7.3.0-9.9`. Other releases, kernels and Mac models are not claimed.
 
+Touch ID is under development on `codex/touchid-integration`. The default
+installer reports its prerequisites and acceptance status. It does **not** claim
+Touch ID is working or enable it by default before physical/security validation.
+See [implementation](TOUCHID-IMPLEMENTATION.md), [test evidence](TOUCHID-TEST-RESULTS.md)
+and [recovery](TOUCHID-RECOVERY.md). The attended `--touchid-trial` option is a
+development-only, one-boot trial from a verified private build. It will not be
+required for a future validated default installation.
+
 ## One-shot installation
 
 From a local checkout:
@@ -38,6 +46,9 @@ The installer runs the existing independent installers in this order:
     NetworkManager profile, and disables automatic fallback to older Wi-Fi profiles.
 4. `desktop/configure.sh` — reports the three touchpad settings without changing
    them, then enables GNOME Bounce Keys with a 100 ms delay.
+5. `touchid/manage.py auto` — detects prerequisites/conflicts and reports the
+   closed Touch ID release gate; saves a private JSON report under
+   `/var/lib/macbook-t1-touchid-reports/`. It preserves the existing password path.
 
 Useful options:
 

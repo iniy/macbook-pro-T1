@@ -46,7 +46,20 @@ class OneShot(unittest.TestCase):
                                   wifi_profile=None, activate_wifi=False)
         commands = [cmd for _, cmd in module.commands(args)]
         self.assertEqual([Path(cmd[1]).name for cmd in commands],
-                         ['install-ubuntu.sh', 'install-5ghz.sh', 'configure.sh'])
+                         ['install-ubuntu.sh', 'install-5ghz.sh', 'configure.sh', 'manage.py'])
+
+    def test_touchid_acceptance_is_always_in_default_flow(self):
+        args = argparse.Namespace(no_install_deps=True, no_sleep=True, no_wifi=True,
+                                  no_desktop=True, wifi_profile=None, activate_wifi=False)
+        commands = [cmd for _, cmd in module.commands(args)]
+        self.assertEqual(commands[-1], ['python3', str(ROOT / 'touchid/manage.py'), 'auto'])
+
+    def test_development_trial_requires_explicit_selection(self):
+        args = argparse.Namespace(no_install_deps=True, no_sleep=True, no_wifi=True,
+                                  no_desktop=True, wifi_profile=None, activate_wifi=False,
+                                  touchid_trial=True)
+        commands = [cmd for _, cmd in module.commands(args)]
+        self.assertEqual(commands[-1], ['python3', str(ROOT / 'touchid/manage.py'), 'trial'])
 
     def test_resume_install_failure_stops_before_wifi_and_desktop(self):
         results = [subprocess.CompletedProcess([], code) for code in (0, 0, 1)]

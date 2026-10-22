@@ -49,6 +49,25 @@ notes](https://github.com/Dunedan/mbp-2016-linux#suspend--hibernation). The
 model-checked udev rule and installer integration in this repository are
 independently implemented.
 
+## 5. Touch ID development: T1Bridge and libfprint/fprintd
+
+T1Bridge developers and packaging contributors, including **Andrew Boyd,
+Jose Salazar and Nicolas Nistal**, supplied the T1 protocol, Secure Enclave
+fingerprint implementation, protected keybag storage, machine-data importer,
+kernel integrations, renderer, service contracts and Arch packaging used here.
+Source: https://github.com/standardagents/t1bridge at
+`81cbdf81026a16e02f0bea74735c6b029a8ffae2` (0.1.12).
+
+The matched fingerprint stack builds on **Daniel Drake, Bastien Nocera and the
+libfprint/fprintd contributors**. The AppStream generator adaptation retains
+**Marco Trevisan**'s copyright and LGPL notice. T1Bridge's DRM and UVC sources
+retain **Kerem Karabay**, **Laurent Pinchart**, Linux contributors and other
+original notices. Exact revisions, packaging credit and license boundaries are
+in [TOUCHID-UPSTREAM-ATTRIBUTION.md](TOUCHID-UPSTREAM-ATTRIBUTION.md).
+
+This project's work is portability, packaging, testing and integration; upstream
+biometric/hardware functionality is not claimed as original work.
+
 ## License rule for this repository
 
 Original integration code, scripts, tests, documentation and original AI-created
