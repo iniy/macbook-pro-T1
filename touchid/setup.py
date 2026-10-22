@@ -12,6 +12,7 @@ import build
 import deploy
 import persistent
 import resume
+import fingerprint_resume
 from probe import inspect
 import trial
 
@@ -121,7 +122,9 @@ def install(user=None, install_deps=False, desktop=True):
     if fresh:
         trial.prepare(owner.pw_name, arm=False)
     try:
-        resume.install(trial.Transaction(trial.STATE / 'files'))
+        tx = trial.Transaction(trial.STATE / 'files')
+        resume.install(tx)
+        fingerprint_resume.install(tx)
         persistent.enable(owner.pw_name)
     except BaseException:
         if fresh:
@@ -135,7 +138,11 @@ def install_resume(user=None):
     preflight(user)
     if existing_state() is None:
         raise RuntimeError('Install Touch ID before adding its resume integration')
-    resume.install(trial.Transaction(trial.STATE / 'files'))
-    print('Installed automatic T1 display wake after s2idle; boot files and fingerprints are unchanged.', flush=True)
+    tx = trial.Transaction(trial.STATE / 'files')
+    resume.install(tx)
+    fingerprint_resume.install(tx)
+    print('Installed T1 display and fingerprint resume recovery; boot files and fingerprints are unchanged.', flush=True)
     if resume.main(['recover']):
         raise RuntimeError('Resume hook is installed, but live display wake did not complete')
+    if fingerprint_resume.main(['recover']):
+        raise RuntimeError('Resume hooks are installed, but live fingerprint recovery did not complete')

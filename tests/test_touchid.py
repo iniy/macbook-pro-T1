@@ -508,7 +508,8 @@ class Setup(unittest.TestCase):
                  patch.object(setup, 'preflight', return_value=(owner, host())), \
                  patch.object(setup, 'ensure_runtime'), patch.object(setup, 'ensure_bundle'), \
                  patch.object(setup, 'existing_state', return_value=previous), \
-                 patch.object(setup.resume, 'install'), patch.object(trial, 'Transaction'), \
+                 patch.object(setup.resume, 'install'), patch.object(setup.fingerprint_resume, 'install'), \
+                 patch.object(trial, 'Transaction'), \
                  patch.object(trial, 'prepare') as prepare, patch.object(trial, 'rollback') as rollback, \
                  patch.object(persistent, 'enable', side_effect=RuntimeError('synthetic failure')):
                 with self.assertRaisesRegex(RuntimeError, 'synthetic failure'):

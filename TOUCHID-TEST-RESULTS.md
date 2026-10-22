@@ -1,7 +1,8 @@
 # Touch ID test results — 22 October 2026
 
 **Physical enrollment, correct-finger matching and wrong-finger rejection passed
-in the one-boot trial. System authentication is not yet accepted.** At the user's
+in the one-boot trial. GNOME fingerprint unlock after s2idle now passes in one
+attended cycle; full authentication acceptance remains incomplete.** At the user's
 request, the one-shot installer now enables persistent Touch ID for the exact
 recorded model/OS/kernel. The ordinary boot image, module tree and
 password-authentication configuration remain the baseline, with normal Ubuntu
@@ -25,7 +26,7 @@ headers, GCC 15.3.0, Rust 1.97.1, systemd 261. Upstream:
 | Four kernel modules | Compiled directly and through DKMS for 7.3.0-9-generic; DKMS build only, no replacement of normal installed modules |
 | Restricted libfprint test build | 98 passed; 33 hardware emulation cases skipped because those unrelated drivers are excluded |
 | Matched fprintd/PAM tests | All 560 passed on synthetic devices/private test buses; no physical fingerprint claim |
-| Integration policy/lifecycle tests | Full top-level project discovery: 103 passed, including 37 Touch ID lifecycle tests, 8 display-wake tests and 9 one-shot tests |
+| Integration policy/lifecycle tests | Full top-level project discovery: 112 passed, including 37 Touch ID lifecycle tests, 8 display-wake tests, 9 fingerprint-resume tests and 9 one-shot tests |
 | Private bundle install, verification, uninstall, reinstall | Passed on this host; system fingerprint libraries and PAM unchanged |
 | Pinned source reconstruction | 919 files match an independent reconstruction from verified archives; a repeated network fetch timed out, so the checksum-verified cache was used |
 | Earlier baseline one-shot repeat | `sudo ./install.sh --no-install-deps` returned 0 when Touch ID was still report-only; this does not validate the new complete installation path |
@@ -157,9 +158,36 @@ reset, ACPI command, service-stack replacement or re-enrollment was used.
 The same helper is installed as a journaled system-sleep `post suspend` hook for
 future s2idle cycles, and fresh/repeated one-shot installation includes it.
 Eight synthetic tests cover scope, dynamic discovery, idempotence, malformed
-reports, mismatched device nodes, and write/readback failures. Automatic recovery
-through the next real sleep cycle remains pending; a successful readback alone
-does not count as physical visibility or successful fingerprint verification.
+reports, mismatched device nodes, and write/readback failures. A successful
+readback alone does not count as physical visibility or fingerprint verification.
+
+The next attended lid-close cycle ran from 16:04:32 to 16:05:13 IST. The display
+hook ran before user sessions thawed and changed parked to awake; the user
+confirmed the Touch Bar recovered automatically. Touch ID failed. The journal
+shows GNOME starting verification at 16:05:14 while the keybag relay was still
+recovering from a lost connection; the broker immediately returned an error.
+The relay became ready at 16:05:16, after that attempt had already failed.
+
+A separate fingerprint post-sleep hook now stops the old client/broker, restarts
+the existing relay, waits for notify-ready, and restores the previous fprintd
+activation state before systemd thaws user sessions. Nine synthetic tests cover
+ordering, stale active relays, missing keybags, failed starts/timeouts, concurrent
+daemon transitions and restoration on failure. Installation and live relay
+recovery completed successfully; the display remained awake.
+
+With both hooks installed, an attended cycle ran from 16:14:56 to 16:15:45 IST.
+The display acknowledged awake at 16:15:45. The fingerprint hook waited for
+relay readiness at 16:15:46, before systemd thawed user sessions. GNOME began
+verification at 16:15:47; the broker completed a successful match at 16:15:52
+and restored the relay. The user confirmed both devices recovered automatically
+and fingerprint unlock succeeded on the first attempt. The relay was running
+with no automatic restart loop after completion.
+
+This is one successful attended cycle with the combined correction, not a
+long-term reliability result. fprintd still logged a sleep-delay-inhibitor warning
+while the suspend wrapper was finishing controller recovery; it did not prevent
+this unlock. Active enrollment during sleep and repeated-cycle regression remain
+outside this observation.
 
 | Requirement | Status |
 | --- | --- |
@@ -168,7 +196,7 @@ does not count as physical visibility or successful fingerprint verification.
 | C. Correct-finger verification | Passed: left index finger produced `verify-match` |
 | D. Incorrect-finger rejection | Passed: unenrolled right index finger produced `verify-no-match` |
 | E. sudo fingerprint authentication | Not enabled/tested |
-| F. GNOME unlock | Existing distro fingerprint service retained; actual unlock not yet tested |
+| F. GNOME unlock | Passed once after s2idle with the combined resume hooks; user confirmed first-attempt fingerprint unlock |
 | G. Password fallback, including unavailable fingerprint service/module | Original PAM preserved; failure-injection acceptance pending |
 | GDM login | Existing distro fingerprint policy enabled; actual login not yet tested |
 | H. Fingerprints persist after reboot | Saved left-index record retained on persistent boot; user confirms existing fingerprint works after live display-wake recovery |
@@ -177,7 +205,7 @@ does not count as physical visibility or successful fingerprint verification.
 | K. Speakers/headphones/microphone | Baseline previously working; replacement-stack regression pending |
 | L. Wi-Fi | Baseline previously working; trial regression pending |
 | M. Keyboard and trackpad | Baseline previously working; trial regression pending |
-| N. Suspend/resume, including audio recovery | Initial T1 s2idle cycle failed display/fingerprint usability. User confirmed both recovered after the live display-wake fix; automatic post-sleep recovery pending |
+| N. Suspend/resume, including audio recovery | One attended cycle passed automatic Touch Bar recovery and first-attempt fingerprint unlock with both hooks. Host/controller recovery passed; repeated cycles and a new physical audio check remain pending |
 | O. Live-stack uninstall/rollback | Rollback after the failed hardware trial passed; removal after a working Touch ID session remains pending |
 | Fresh one-shot installation | Not tested |
 | Existing-installation upgrade and repeated complete Touch ID installation | Synthetic reuse and failure-path tests pass; complete physical acceptance pending |

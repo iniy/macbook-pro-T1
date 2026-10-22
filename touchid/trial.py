@@ -245,6 +245,8 @@ def install_configuration(tx):
     guard_legacy_udev(tx)
     import resume
     resume.install(tx)
+    import fingerprint_resume
+    fingerprint_resume.install(tx)
     source = PREFIX / 'integration/systemd'
     for path in [*source.glob('*.service'), *source.glob('*.socket')]:
         content = path.read_text().replace('/usr/lib/t1bridge/', str(PREFIX / 'libexec') + '/')

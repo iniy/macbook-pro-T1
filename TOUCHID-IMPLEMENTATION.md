@@ -4,9 +4,10 @@ This development branch builds and privately stages T1Bridge. **Physical
 enrollment, correct-finger matching and wrong-finger rejection now pass in the
 one-boot trial.** At the user's explicit request, persistent boot is now enabled
 on the development host and included in the one-shot installer for that exact
-model/OS/kernel target. Login, unlock, sudo, reboot persistence and the remaining
-physical acceptance checks are still pending; enabling installation does not
-mark those checks as passed.
+model/OS/kernel target. The saved fingerprint survived the persistent boot;
+GNOME fingerprint unlock after s2idle passed once with the combined resume hooks.
+Cold login, sudo and broader physical acceptance remain pending; enabling
+installation does not mark those checks as passed.
 
 ## Implemented
 
@@ -29,6 +30,11 @@ mark those checks as passed.
   panel is parked. It checks the readback and reports errors; it does not reset
   USB, switch configurations, call ACPI methods or touch biometric storage.
   Existing installations can add it with `touchid/manage.py install-resume`.
+- A second post-sleep hook releases stale fingerprint clients and waits for the
+  existing keybag relay's notify-ready state before systemd thaws user sessions.
+  This closes the observed race between unlock and relay recovery. It restores
+  the prior fprintd activation state, keeps broker sockets enabled, and does not
+  change PAM or keybags. Service commands and the complete hook are time-bounded.
 - USB 05ac:8600 and active configuration/driver discovery, distribution/version,
   init, desktop, tools and exact header checks. EFI preflight tests file presence
   only; same-sensor validation belongs to the upstream importer. No payload or
@@ -105,9 +111,13 @@ specific omission, following the protocol evidence in upstream
 [PR #47](https://github.com/standardagents/t1bridge/pull/47) and
 [issue #18](https://github.com/standardagents/t1bridge/issues/18). The live helper
 changed parked to awake, and the user confirmed both Touch Bar and Touch ID
-working again. Automatic recovery across a further sleep cycle remains pending;
-the test report records the observed scope. S3/deep sleep is outside this hook's
-scope.
+working again. The next real cycle confirmed automatic display recovery but
+exposed a separate fingerprint readiness race: authentication started before
+the relay finished restarting. The added fingerprint hook waits for readiness
+before user sessions resume. One further attended cycle confirmed automatic
+Touch Bar recovery and first-attempt fingerprint unlock; the log shows relay
+readiness before user-session thaw and a subsequent successful match. The test
+report records the observed scope. S3/deep sleep is outside these hooks' scope.
 
 A new unprivileged PipeWire/MPRIS provider supplies volume/mute/media control and
 GNOME display-power state through upstream's documented provider v1 protocol.
@@ -124,10 +134,11 @@ Automatic same-sensor import, GNOME Settings enrollment and independent matching
 were exercised on this host on 22 October 2026. A left index fingerprint matched;
 an unenrolled right index fingerprint was rejected. The initial terminal
 enrollment failed during keybag preparation before the later Settings enrollment
-succeeded; the cause remains unproven. Reboot persistence is untested. No PAM
-rule was enabled and no automatic firmware recovery was run. Consumer-specific
-authentication and password-fallback acceptance remain required for
-sudo/GNOME/GDM. See TOUCHID-TEST-RESULTS.md for the exact observed scope.
+succeeded; the cause remains unproven. The saved fingerprint persisted across
+the subsequent boot and passed GNOME unlock after the resume correction. No PAM
+rule was enabled and no automatic firmware recovery was run. Sudo, cold GDM
+login and failure-injection password-fallback acceptance remain pending.
+See TOUCHID-TEST-RESULTS.md for the exact observed scope.
 
 ## Development commands
 

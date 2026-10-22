@@ -1,5 +1,20 @@
 # Touch ID change log
 
+## 2026-10-22 — fingerprint readiness before unlock
+
+- A further attended lid-close cycle confirmed automatic Touch Bar recovery
+  but failed Touch ID: authentication began at 16:05:14 IST, while the keybag
+  relay reached readiness at 16:05:16.
+- Added a separate, bounded post-sleep fingerprint recovery hook. It releases
+  old clients, reopens the relay and waits for notify-ready before user sessions
+  thaw, restoring fprintd only if previously active. Existing fingerprints,
+  password authentication and USB configuration are preserved.
+- Included the hook in fresh/repeated installation and `install-resume`, with
+  journaled rollback. All 112 repository tests pass.
+- Confirmed one further attended s2idle cycle: relay ready before user-session
+  thaw, automatic Touch Bar recovery and successful fingerprint unlock on the
+  first attempt. Repeated-cycle and broader regression acceptance remain pending.
+
 ## 2026-10-22 — s2idle display wake recovery
 
 - Investigated the first reported lid-close failure on the persistent T1 boot:

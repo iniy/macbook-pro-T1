@@ -18,9 +18,10 @@ MacBookPro13,2 / Ubuntu 26.10 / `7.3.0-9-generic` target. It reuses a verified
 private bundle or builds the pinned sources as the desktop user, stages the
 isolated drivers, and selects **Ubuntu with Touch ID (MacBook T1)** at boot.
 Normal Ubuntu remains selectable in a five-second menu. Existing fingerprints
-and password PAM rules are preserved. Enrollment and basic matching passed on
-the development host; full login, reboot and hardware regression acceptance
-remain incomplete. This does not claim support for other kernels or models.
+and password PAM rules are preserved. Enrollment, basic matching and one
+post-sleep fingerprint unlock passed on the development host; repeated-cycle,
+cold-login and broader hardware regression acceptance remain incomplete. This
+does not claim support for other kernels or models.
 See [implementation](TOUCHID-IMPLEMENTATION.md), [test evidence](TOUCHID-TEST-RESULTS.md)
 and [recovery](TOUCHID-RECOVERY.md). Use `--no-touchid` to skip this component.
 The optional `--touchid-trial` keeps the earlier one-boot evaluation mode.
@@ -54,8 +55,8 @@ components, then runs these steps:
    them, then enables GNOME Bounce Keys with a 100 ms delay.
 5. `touchid/manage.py install` — installs missing dependencies, builds or reuses
    the private fingerprint stack, installs the GNOME 51 volume/mute OSD helper,
-   enables persistent Touch ID boot, and installs the T1 display wake hook for
-   s2idle resume. New builds run without root; driver
+   enables persistent Touch ID boot, and installs display and fingerprint
+   recovery hooks for s2idle resume. New builds run without root; driver
    staging and boot selection run under a sleep/shutdown inhibitor. Repeat runs
    verify and preserve existing configuration. Local edits or different kernels
    stop the installation instead of silently replacing boot files.
@@ -67,9 +68,9 @@ authentication in the shared sudo/password PAM stack. The first source build
 requires network access and can take considerable time. There is no automatic
 reboot or fingerprint enrollment.
 
-For an existing Touch ID installation whose Touch Bar stays dark after sleep,
-add the resume hook with `sudo python3 touchid/manage.py install-resume --user "$USER"`.
-It also applies the display wake immediately. See
+For an existing Touch ID installation with display or fingerprint failures after
+sleep, add the resume hooks with `sudo python3 touchid/manage.py install-resume --user "$USER"`.
+It also applies recovery immediately. See
 [recovery details](TOUCHID-RECOVERY.md#dark-touch-bar-after-s2idle).
 
 Useful options:

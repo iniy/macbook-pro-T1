@@ -18,8 +18,9 @@ The explicit `--touchid-trial` option still selects its image for one boot only.
 The user requested persistent activation on 22 October after successful enrollment
 and basic matching. The first persistent boot selected the isolated image and
 retained the saved fingerprint record. Actual GDM fingerprint login has not been
-confirmed. The first reported lid-close sleep cycle left the Touch Bar dark;
-see the s2idle recovery below.
+confirmed. The first reported lid-close sleep cycle left the Touch Bar dark.
+With both recovery hooks below installed, the user confirmed automatic Touch
+Bar recovery and first-attempt GNOME fingerprint unlock after another cycle.
 
 ## Dark Touch Bar after s2idle
 
@@ -30,17 +31,30 @@ at resume. The installer now supplies a narrowly scoped workaround in
 It checks the exact T1/configuration/interface and device node, then reads the
 display power state. An already-awake panel receives no write. A parked panel
 gets the documented awake report, with readback verification and a 15-second
-deadline. The hook never opens the fingerprint transport or changes its records.
+deadline. The display hook never opens the fingerprint transport or changes its records.
 
-To add the hook to an existing staged/persistent installation and apply the
-display wake immediately:
+A separate `80-macbook-t1-fingerprint-resume` hook addresses the observed unlock
+race: the first fingerprint request arrived two seconds before the restarted
+keybag relay was ready. Systemd keeps user sessions frozen until its post-sleep
+hooks finish. During that interval, this hook stops fprintd and its broker to
+release any previous operation, restarts the existing relay and waits for its
+`Type=notify` readiness, then restores fprintd if it was previously active.
+Otherwise it leaves fprintd available for normal D-Bus activation. Fingerprint
+sockets remain enabled. Every command has a timeout; the primary recovery has
+a 35-second deadline, and restoring an already-active fprintd on failure gets
+one bounded six-second attempt. Errors are logged; no PAM rule, password path or
+keybag file is changed.
+It skips recovery when no existing keybag is present.
+
+To add both hooks to an existing staged/persistent installation and apply
+recovery immediately:
 
 ```sh
 sudo python3 touchid/manage.py install-resume --user "$USER"
 ```
 
-This does not suspend or reboot the machine. The hook joins the existing file
-journal and is removed by `rollback-trial`. For read-only display-power diagnosis:
+This does not suspend or reboot the machine. Both hooks join the existing file
+journal and are removed by `rollback-trial`. For read-only display-power diagnosis:
 
 ```sh
 sudo python3 touchid/resume.py check
