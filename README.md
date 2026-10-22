@@ -8,18 +8,22 @@ One-shot setup for the late-2016 MacBook Pro 13,2 on Ubuntu 26.10:
 * Broadcom BCM43602 5 GHz-only Wi-Fi
 * Guarded s2idle suspend with NVMe and PCIe power workarounds
 * GNOME Bounce Keys preference
+* Persistent Touch ID boot and GNOME fingerprint enrollment support
 
 Test target: Ubuntu 26.10, kernel `7.3.0-9-generic`, matching Ubuntu source and
 headers `7.3.0-9.9`. Other releases, kernels and Mac models are not claimed.
 
-Touch ID remains under development. Enrollment, correct-finger matching and
-wrong-finger rejection passed in the attended trial; login, unlock, sudo and
-reboot persistence remain unvalidated. The default installer reports prerequisites
-and acceptance status and does **not** enable Touch ID before full validation.
+The one-shot installer now enables persistent Touch ID on the recorded
+MacBookPro13,2 / Ubuntu 26.10 / `7.3.0-9-generic` target. It reuses a verified
+private bundle or builds the pinned sources as the desktop user, stages the
+isolated drivers, and selects **Ubuntu with Touch ID (MacBook T1)** at boot.
+Normal Ubuntu remains selectable in a five-second menu. Existing fingerprints
+and password PAM rules are preserved. Enrollment and basic matching passed on
+the development host; full login, reboot and hardware regression acceptance
+remain incomplete. This does not claim support for other kernels or models.
 See [implementation](TOUCHID-IMPLEMENTATION.md), [test evidence](TOUCHID-TEST-RESULTS.md)
-and [recovery](TOUCHID-RECOVERY.md). The attended `--touchid-trial` option is a
-development-only, one-boot trial from a verified private build. It will not be
-required for a future validated default installation.
+and [recovery](TOUCHID-RECOVERY.md). Use `--no-touchid` to skip this component.
+The optional `--touchid-trial` keeps the earlier one-boot evaluation mode.
 
 ## One-shot installation
 
@@ -31,7 +35,8 @@ cd macbook-pro-T1
 sudo ./install.sh
 ```
 
-The installer runs the existing independent installers in this order:
+The installer checks the Touch ID target/account before changing baseline
+components, then runs these steps:
 
 1. `install-ubuntu.sh --touchbar --audio --camera` — builds or reuses the T1
    and CS8409 DKMS components; camera setup remains stock UVC.
@@ -47,9 +52,19 @@ The installer runs the existing independent installers in this order:
     NetworkManager profile, and disables automatic fallback to older Wi-Fi profiles.
 4. `desktop/configure.sh` — reports the three touchpad settings without changing
    them, then enables GNOME Bounce Keys with a 100 ms delay.
-5. `touchid/manage.py auto` — detects prerequisites/conflicts and reports the
-   closed Touch ID release gate; saves a private JSON report under
-   `/var/lib/macbook-t1-touchid-reports/`. It preserves the existing password path.
+5. `touchid/manage.py install` — installs missing dependencies, builds or reuses
+   the private fingerprint stack, installs the GNOME 51 volume/mute OSD helper,
+   and enables persistent Touch ID boot. New builds run without root; driver
+   staging and boot selection run under a sleep/shutdown inhibitor. Repeat runs
+   verify and preserve existing configuration. Local edits or different kernels
+   stop the installation instead of silently replacing boot files.
+
+Restart once, select your account, and enroll through **Settings → System →
+Users → Fingerprint Login** if no fingerprint is already saved. GNOME's existing
+fingerprint PAM service handles login; the installer does not enable fingerprint
+authentication in the shared sudo/password PAM stack. The first source build
+requires network access and can take considerable time. There is no automatic
+reboot or fingerprint enrollment.
 
 Useful options:
 
@@ -61,6 +76,8 @@ sudo ./install.sh --wifi-profile UUID   # choose a saved WPA2 profile
 sudo ./install.sh --no-install-deps
 sudo ./install.sh --no-wifi
 sudo ./install.sh --no-desktop
+sudo ./install.sh --no-touchid
+sudo ./install.sh --touchid-user ACCOUNT
 ```
 
 The Wi-Fi installer does not copy proprietary firmware into Git. It obtains the

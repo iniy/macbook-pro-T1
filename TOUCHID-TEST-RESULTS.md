@@ -1,9 +1,11 @@
 # Touch ID test results — 22 October 2026
 
 **Physical enrollment, correct-finger matching and wrong-finger rejection passed
-in the one-boot trial. System authentication is not yet accepted. Default
-activation: NO.** The ordinary boot image, module tree and password-authentication
-configuration remain the baseline.
+in the one-boot trial. System authentication is not yet accepted.** At the user's
+request, the one-shot installer now enables persistent Touch ID for the exact
+recorded model/OS/kernel. The ordinary boot image, module tree and
+password-authentication configuration remain the baseline, with normal Ubuntu
+available in the boot menu. Installation is separate from full physical acceptance.
 
 ## Build and automated evidence
 
@@ -23,10 +25,12 @@ headers, GCC 15.3.0, Rust 1.97.1, systemd 261. Upstream:
 | Four kernel modules | Compiled directly and through DKMS for 7.3.0-9-generic; DKMS build only, no replacement of normal installed modules |
 | Restricted libfprint test build | 98 passed; 33 hardware emulation cases skipped because those unrelated drivers are excluded |
 | Matched fprintd/PAM tests | All 560 passed on synthetic devices/private test buses; no physical fingerprint claim |
-| Integration policy/lifecycle tests | Full top-level project discovery: 81 passed before publishing to main, including 26 Touch ID tests and 6 one-shot tests |
+| Integration policy/lifecycle tests | Full top-level project discovery: 95 passed, including 37 Touch ID tests and 9 one-shot tests |
 | Private bundle install, verification, uninstall, reinstall | Passed on this host; system fingerprint libraries and PAM unchanged |
 | Pinned source reconstruction | 919 files match an independent reconstruction from verified archives; a repeated network fetch timed out, so the checksum-verified cache was used |
-| Existing baseline one-shot repeat | `sudo ./install.sh --no-install-deps` returned 0; Touch ID reported unvalidated, as intended |
+| Earlier baseline one-shot repeat | `sudo ./install.sh --no-install-deps` returned 0 when Touch ID was still report-only; this does not validate the new complete installation path |
+| Persistent boot configuration | Installed locally after the user's request; generated menu checked, original kernel/initramfs and PAM preserved. First persistent boot not yet observed |
+| Default one-shot orchestration | Command-plan and failure-path tests pass: target preflight, unprivileged source build, existing bundle reuse, persistent selection, scoped rollback and opt-out |
 | Runtime library isolation | `ldd` resolves the installed private fprintd to the bundled libfprint |
 | Local DEB | Built and inspected; native runtime dependencies computed with dpkg-shlibdeps; not released |
 | Desktop provider | Live read-only volume/mute/display-power status succeeded; action contract tested with mocks |
@@ -112,9 +116,27 @@ Shell's caller restrictions. An optional GNOME 51 user extension now observes
 output volume/mute changes and displays the native OSD during trial boots.
 Its module syntax and installed bytes were checked; a read-only Gvc probe
 confirmed the current output's volume/mute properties and volume limits.
-The extension is installed with its enabled preference set. GNOME must discover
-it at the next sign-out/sign-in; visual acceptance remains pending. This does
-not require a reboot or changes to fingerprint services.
+The extension loaded in the subsequent normal session and remained inert because
+that boot did not select T1Bridge. Visual acceptance on a T1Bridge boot remains
+pending. The one-shot installer now installs it for the selected desktop account.
+
+### Persistent installation follow-up
+
+The next reboot returned to normal Ubuntu as expected for a one-time trial, so
+the distribution fingerprint daemon exposed no T1 reader and Settings hid its
+fingerprint menu. After the user requested persistent activation without repeating
+physical tests, the existing isolated image was selected as the GRUB default.
+The normal Ubuntu entry remains available in a five-second menu. Generated boot
+configuration, original kernel/initramfs and PAM hashes were checked; the saved
+fingerprint record was present without reading its biometric content. GDM's
+existing fingerprint policy was enabled and its fingerprint PAM service was
+already installed. Actual GDM login and the next persistent boot remain unobserved.
+
+The tracked one-shot path now supports the same activation, fresh source builds,
+and verified reuse of existing installations. Synthetic tests cover an unenrolled
+fresh setup, repeat installation, changed boot files, failed menu generation,
+missing normal fallback and preservation of unrelated pending boot choices.
+No physical fingerprint tests were repeated for this installer change.
 
 | Requirement | Status |
 | --- | --- |
@@ -123,11 +145,11 @@ not require a reboot or changes to fingerprint services.
 | C. Correct-finger verification | Passed: left index finger produced `verify-match` |
 | D. Incorrect-finger rejection | Passed: unenrolled right index finger produced `verify-no-match` |
 | E. sudo fingerprint authentication | Not enabled/tested |
-| F. GNOME unlock | Not enabled/tested by this integration |
+| F. GNOME unlock | Existing distro fingerprint service retained; actual unlock not yet tested |
 | G. Password fallback, including unavailable fingerprint service/module | Original PAM preserved; failure-injection acceptance pending |
-| GDM login | Not enabled/tested by this integration |
+| GDM login | Existing distro fingerprint policy enabled; actual login not yet tested |
 | H. Fingerprints persist after reboot | Not tested |
-| I. Touch Bar under replacement stack | Visible; services stable after fingerprint tests. User confirms volume and mute work. GNOME OSD fix installed, awaiting sign-out/sign-in and visual confirmation; other control regression tests pending |
+| I. Touch Bar under replacement stack | Visible; services stable after fingerprint tests. User confirms volume and mute work. GNOME OSD fix loaded on normal boot; T1Bridge-boot visual confirmation and other control regression tests pending |
 | J. Camera under replacement UVC driver | Not tested |
 | K. Speakers/headphones/microphone | Baseline previously working; replacement-stack regression pending |
 | L. Wi-Fi | Baseline previously working; trial regression pending |
@@ -135,11 +157,12 @@ not require a reboot or changes to fingerprint services.
 | N. Suspend/resume, including audio recovery | User confirmed baseline on 21 October; new-stack test pending |
 | O. Live-stack uninstall/rollback | Rollback after the failed hardware trial passed; removal after a working Touch ID session remains pending |
 | Fresh one-shot installation | Not tested |
-| Existing-installation upgrade and repeated complete Touch ID installation | Not accepted |
+| Existing-installation upgrade and repeated complete Touch ID installation | Synthetic reuse and failure-path tests pass; complete physical acceptance pending |
 | Kernel update | Not tested; generated DKMS metadata restricts the exact compiled kernel |
 
 A passing service start, compile, mock match or staged rollback does not promote
 these rows. `compatibility.json` has no validated entries. Promotion requires all
 mandatory physical, authentication, persistence, fallback, regression, upgrade,
-recovery and complete one-shot installation checks, plus a permanent installation
-path. The one-boot trial is not that release acceptance.
+recovery and complete one-shot installation checks. Persistent installation is
+implemented and enabled at the user's request; it does not mark untested rows as
+passed.

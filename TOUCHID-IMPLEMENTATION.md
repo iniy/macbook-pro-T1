@@ -2,16 +2,27 @@
 
 This development branch builds and privately stages T1Bridge. **Physical
 enrollment, correct-finger matching and wrong-finger rejection now pass in the
-one-boot trial.** Login, unlock, sudo, reboot persistence and the remaining
-acceptance checks are still pending. The released installer must not activate
-Touch ID until physical, security and regression acceptance passes.
+one-boot trial.** At the user's explicit request, persistent boot is now enabled
+on the development host and included in the one-shot installer for that exact
+model/OS/kernel target. Login, unlock, sudo, reboot persistence and the remaining
+physical acceptance checks are still pending; enabling installation does not
+mark those checks as passed.
 
 ## Implemented
 
-- The default `install.sh` sequence always runs a read-only Touch ID readiness
-  and acceptance report. No `--touchid` opt-in is needed for this assessment.
-  Missing firmware, model support, headers, systemd or driver compatibility is
-  reported explicitly. A blocked Touch ID step preserves baseline installation.
+- The default `install.sh` sequence checks the Touch ID host/account first, then
+  installs persistent support after the baseline hardware components. No separate
+  Touch ID opt-in is required. `--no-touchid` skips it; `--touchid-trial` retains
+  one-boot staging. Missing firmware or unsupported targets fail preflight.
+- Fresh installation obtains missing packages, builds locked sources as the
+  desktop user, verifies and privately installs the bundle, and stages a separate
+  boot image. A new GRUB entry becomes the persistent default with normal Ubuntu
+  available in a five-second menu. There is no live USB switch or automatic reboot.
+- Existing private bundles and persistent installations are verified and reused.
+  The account, exact kernel, boot/image hashes and journaled files must match.
+  Fingerprints are neither read nor deleted. Failed promotion restores only its
+  new boot files; full rollback restores the original menu and removes its
+  generator/default drop-in.
 - USB 05ac:8600 and active configuration/driver discovery, distribution/version,
   init, desktop, tools and exact header checks. EFI preflight tests file presence
   only; same-sensor validation belongs to the upstream importer. No payload or
@@ -52,8 +63,9 @@ Touch ID until physical, security and regression acceptance passes.
    Kernel-update acceptance remains pending.
 5. **Installer reporting and release gate.** Upstream packaging has no knowledge
    of this repository's working legacy Touch Bar and sleep stack. Discovery now
-   identifies the conflict and keeps promotion blocked until the complete matrix
-   is accepted. Existing sleep files are not changed.
+   identifies the conflict and keeps physical acceptance separate from the
+   explicitly requested exact-target installation. Existing sleep files are not
+   changed by the Touch ID component.
 
 ## Remaining implementation and hardware boundary
 
@@ -69,7 +81,9 @@ a one-time GRUB entry, and boot-flag-conditioned T1Bridge services. It builds vi
 DKMS without installing modules into the normal module tree. The legacy Touch
 Bar service is suppressed only on that trial boot. A conditional fprintd launcher
 uses the private daemon on trial boots and the distribution daemon otherwise.
-The next ordinary boot retains the original image and drivers. Staging, pre-boot
+The one-boot mode returns to the original image afterward. Persistent mode uses
+the same isolated image and `t1bridge.trial=1` service guard on every selected
+Touch ID boot; normal Ubuntu uses the original image and drivers. Staging, pre-boot
 rollback and restaging succeeded. The legacy udev rule is guarded on trial boots
 to preserve configuration 2, and machine-data import waits for xART readiness.
 Sensor operations and visible Touch Bar availability now pass; full hardware
@@ -81,9 +95,10 @@ It validates fixed actions, uses bounded calls and never participates in
 fingerprint authorization. Read-only status and synthetic action tests pass;
 the user confirmed physical volume and mute control. The optional GNOME 51
 extension in `touchid/gnome-volume-osd/` supplies the native OSD for external
-volume changes during trial boots. It is installed for the test account but
-awaits a new desktop session and visual confirmation. Other controls remain
-unverified.
+volume changes during T1Bridge boots. The one-shot installer installs it as the
+desktop user while preserving disabled-extension preferences. It loaded in the
+subsequent normal session, where its boot guard kept it inert; visual confirmation
+on a T1Bridge boot and other control checks remain pending.
 
 Automatic same-sensor import, GNOME Settings enrollment and independent matching
 were exercised on this host on 22 October 2026. A left index fingerprint matched;
@@ -109,8 +124,8 @@ python3 touchid/manage.py package-deb --work sources/touchid-build-clean --outpu
 
 Use a fresh build directory. Builds run without root; installation verifies every
 manifest entry and installs only an inert private bundle. The default user entry
-point remains `sudo ./install.sh`. It explicitly reports Touch ID as unavailable
-until the remaining implementation and acceptance work is complete.
+point remains `sudo ./install.sh`. The separate `check`/`auto` commands remain
+read-only acceptance reports; they do not enroll or activate anything.
 
 ## Further tested packaging adaptations
 
@@ -143,4 +158,5 @@ the fingerprint enrollment interface when the trial reader is available;
 `gnome-control-center system users` opens that panel. Verify the enrolled finger
 and rejection of an unenrolled finger independently before authentication
 integration. Keep PAM unchanged until consumer-specific activation and password
-fallback tests are prepared. A permanent default installation remains gated.
+fallback tests are prepared. Persistent boot is now the default installation path
+on the exact supported target; the trial option remains a one-boot alternative.

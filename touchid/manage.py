@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""Touch ID build and readiness integration; release activation is fail-closed."""
+"""Touch ID installation and separate build/physical acceptance reporting."""
 import argparse
 import json
 import os
@@ -19,9 +19,10 @@ from transaction import atomic
 
 def report(args):
     result = assessment(inspect())
-    # No row is approved yet. A matrix edit alone cannot authorize an incomplete
-    # replacement of the existing Touch Bar, camera and authentication stack.
-    result['default_install_enabled'] = False
+    import setup
+    import persistent
+    result['default_install_enabled'] = setup.supported(result['host'])
+    result['persistent_configured'] = persistent.configured()
     result['installed_private_bundle'] = build.PREFIX.is_dir()
     import trial
     result['trial_boot'] = trial.booted()
@@ -32,7 +33,8 @@ def report(args):
     if args.json:
         print(json.dumps(result, indent=2))
     else:
-        print('Touch ID: NOT ENABLED (release acceptance incomplete).')
+        print('Touch ID persistent boot: ' + ('configured' if result['persistent_configured'] else 'not configured'))
+        print('Full physical acceptance remains incomplete; this report does not change configuration.')
         for reason in result['reasons']:
             print('  - ' + reason)
         print('Existing drivers and password authentication are preserved.')
@@ -47,33 +49,40 @@ def report(args):
         output = folder / 'latest.json'
     if output:
         atomic(output.absolute(), (json.dumps(result, indent=2) + '\n').encode())
-    # Default installation continues baseline hardware; explicit check is nonzero.
+    # The legacy report-only action succeeds; an incomplete explicit check does not.
     return 0 if args.action == 'auto' else 2
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['auto', 'check', 'dependencies', 'build', 'install-bundle', 'verify-bundle', 'remove-bundle', 'package-deb', 'trial', 'rollback-trial'])
+    parser.add_argument('action', choices=['auto', 'check', 'preflight', 'install', 'dependencies', 'build', 'install-bundle', 'verify-bundle', 'remove-bundle', 'package-deb', 'trial', 'rollback-trial'])
     parser.add_argument('--work', type=Path, default=Path(__file__).resolve().parents[1] / 'sources/touchid-build')
     parser.add_argument('--bundle', type=Path)
     parser.add_argument('--output', type=Path)
     parser.add_argument('--json', action='store_true')
     parser.add_argument('--install-deps', action='store_true')
+    parser.add_argument('--no-desktop', action='store_true', help='Skip the optional GNOME OSD extension')
     parser.add_argument('--userspace-only', action='store_true', help='CI build without kernel headers; cannot stage a hardware trial')
-    parser.add_argument('--user', default=os.environ.get('SUDO_USER'), help='Local graphical account for an attended trial')
+    parser.add_argument('--user', default=os.environ.get('SUDO_USER'), help='Local desktop account for Touch ID installation or trial')
     args = parser.parse_args()
     try:
         if args.action in ('auto', 'check'):
             return report(args)
-        if args.action in ('trial', 'rollback-trial'):
+        if args.action in ('preflight', 'install', 'trial', 'rollback-trial'):
             if os.geteuid() != 0:
-                raise RuntimeError('Trial changes require root')
+                raise RuntimeError('Touch ID installation and staging require root')
             import fcntl
             import trial
             fd = os.open('/run/macbook-t1-touchid.lock', os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
             try:
                 fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                if args.action == 'trial':
+                if args.action in ('preflight', 'install'):
+                    import setup
+                    if args.action == 'preflight':
+                        setup.preflight(args.user, args.install_deps)
+                    else:
+                        setup.install(args.user, args.install_deps, desktop=not args.no_desktop)
+                elif args.action == 'trial':
                     if not args.user:
                         raise RuntimeError('A local graphical --user is required')
                     trial.prepare(args.user)

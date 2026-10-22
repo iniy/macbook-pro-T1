@@ -9,8 +9,8 @@
       "version": "26.10",
       "kernel": "7.3.0-9-generic",
       "upstream_commit": "81cbdf81026a16e02f0bea74735c6b029a8ffae2",
-      "scope": "Runtime and kernel compilation plus automated tests; physical acceptance pending"
+      "scope": "Runtime/kernel builds, automated tests, same-sensor import, enrollment and positive/negative matching; full acceptance pending"
     }
   ],
-  "note": "No configuration has passed this project's full physical acceptance matrix. Default installer only reports readiness until promotion."
+  "note": "No configuration has passed the full physical acceptance matrix. At the user's request the one-shot installer enables persistent Touch ID on the exact recorded build target; installation does not promote untested acceptance rows."
 }

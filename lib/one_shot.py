@@ -13,6 +13,13 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def commands(args):
+    touchid = not getattr(args, 'no_touchid', False)
+    touchid_options = [] if args.no_install_deps else ['--install-deps']
+    if getattr(args, 'touchid_user', None):
+        touchid_options += ['--user', args.touchid_user]
+    if touchid and not getattr(args, 'touchid_trial', False):
+        yield 'Touch ID installation preflight', [
+            'python3', str(ROOT / 'touchid/manage.py'), 'preflight', *touchid_options]
     hardware = ['bash', str(ROOT / 'install-ubuntu.sh'), '--touchbar', '--audio', '--camera']
     if not args.no_install_deps:
         hardware.append('--install-deps')
@@ -35,9 +42,15 @@ def commands(args):
     if not args.no_desktop:
         yield 'GNOME user settings', ['bash', str(ROOT / 'desktop/configure.sh')]
     if getattr(args, 'touchid_trial', False):
-        yield 'Attended one-boot Touch ID trial', ['python3', str(ROOT / 'touchid/manage.py'), 'trial']
-    else:
-        yield 'Touch ID compatibility and acceptance', ['python3', str(ROOT / 'touchid/manage.py'), 'auto']
+        yield 'Attended one-boot Touch ID trial', [
+            'python3', str(ROOT / 'touchid/manage.py'), 'trial',
+            *(['--user', args.touchid_user] if getattr(args, 'touchid_user', None) else [])]
+    elif touchid:
+        yield 'Persistent Touch ID and fingerprint enrollment support', [
+            'systemd-inhibit', '--what=sleep:shutdown', '--mode=block',
+            '--why=Configure persistent MacBook Touch ID',
+            'python3', str(ROOT / 'touchid/manage.py'), 'install', *touchid_options,
+            *(['--no-desktop'] if args.no_desktop else [])]
 
 
 def main():
@@ -50,8 +63,11 @@ def main():
     parser.add_argument('--no-desktop', action='store_true', help='Skip GNOME settings, e.g. on a headless system')
     parser.add_argument('--wifi-profile', help='Existing trusted WPA2 profile UUID; otherwise discover the active/only saved profile')
     parser.add_argument('--activate-wifi', action='store_true', help='Activate a new Wi-Fi installation with timed rollback; requires Ethernet')
-    parser.add_argument('--touchid-trial', action='store_true',
+    touchid_mode = parser.add_mutually_exclusive_group()
+    touchid_mode.add_argument('--no-touchid', action='store_true', help='Skip Touch ID installation; preserve any existing setup')
+    touchid_mode.add_argument('--touchid-trial', action='store_true',
                         help='Development only: stage a one-boot T1Bridge trial from the verified private bundle')
+    parser.add_argument('--touchid-user', help='Desktop account for Touch ID; defaults to the sudo/pkexec account')
     args = parser.parse_args()
     if args.no_wifi and (args.wifi_profile or args.activate_wifi):
         parser.error('--no-wifi cannot be combined with Wi-Fi installation options')
@@ -68,7 +84,7 @@ def main():
         if result.returncode:
             print('Stopped at: ' + label + '. Completed components are preserved; fix the reported issue and rerun.', flush=True)
             return result.returncode
-    print('Selected baseline components are installed/configured. See the separate Touch ID acceptance result above.')
+    print('Selected components are installed/configured. Existing fingerprints and password authentication are preserved.')
     print('No automatic reboot was requested. Newly staged kernel drivers take effect on reboot.')
     if not args.no_sleep:
         print('Sleep configuration is installed; restart if the sleep installer reported a pending boot setting.')

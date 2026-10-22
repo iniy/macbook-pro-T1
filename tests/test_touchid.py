@@ -19,6 +19,8 @@ import build
 import deploy
 import probe
 import trial
+import persistent
+import setup
 from transaction import Transaction
 
 
@@ -340,6 +342,188 @@ class Desktop(unittest.TestCase):
             self.provider.status()
             self.assertEqual(output.getvalue().strip(), 'T1BRIDGE-DESKTOP 1 1 30 0')
 
+
+class Persistent(unittest.TestCase):
+    def setUp(self):
+        from types import SimpleNamespace
+        from contextlib import ExitStack
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name) / 'root'
+        self.root.mkdir()
+        self.state = Path(self.temp.name) / 'state'
+        self.state.mkdir(mode=0o700)
+        self.kernel = '7.3.0-synthetic'
+        self.original = ("menuentry 'Ubuntu' --id 'normal' {\n"
+                         " linux /boot/vmlinuz-7.3.0-synthetic root=UUID=synthetic ro pcie_port_pm=off\n"
+                         " initrd /boot/initrd.img-7.3.0-synthetic\n}\n")
+        for name, content in {persistent.MENU: self.original,
+                              'boot/vmlinuz-' + self.kernel: 'kernel',
+                              'boot/initrd.img-' + self.kernel: 'normal initramfs',
+                              'boot/initrd-t1': 'isolated T1 image',
+                              'boot/grub/grubenv': 'environment',
+                              'etc/pam.d/common-auth': 'original password authentication'}.items():
+            path = self.root / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(content)
+        self.tx = Transaction(self.state / 'files', self.root)
+        self.tx.put(trial.LEGACY_UDEV_RULE, b'guard')
+        self.prior = list(self.tx.entries)
+        (self.state / 'state.json').write_text(json.dumps(
+            dict(phase='staged', user='test-account', kernel=self.kernel, image='initrd-t1')))
+        self.baseline = {'/' + name: build.digest(self.root / name) for name in (
+            persistent.MENU, 'boot/vmlinuz-' + self.kernel, 'boot/initrd.img-' + self.kernel)}
+        (self.state / 'baseline-sha256.json').write_text(json.dumps(self.baseline))
+        self.env = 'next_entry=\n'
+        self.stack = ExitStack()
+        self.addCleanup(self.stack.close)
+        for target, value in ((persistent.os, ('geteuid', 0)),
+                              (persistent.platform, ('release', self.kernel)),
+                              (persistent.pwd, ('getpwnam', SimpleNamespace(pw_gid=1000))),
+                              (persistent.grp, ('getgrnam', SimpleNamespace(gr_gid=1001))),
+                              (persistent.os, ('getgrouplist', [1000, 1001]))):
+            self.stack.enter_context(patch.object(target, value[0], return_value=value[1]))
+        self.stack.enter_context(patch.object(persistent, 'verify', return_value={
+            'kernel': self.kernel, 'tests_requested': True}))
+        self.stack.enter_context(patch.object(persistent.subprocess, 'check_output', side_effect=self.output))
+        self.run = self.stack.enter_context(patch.object(persistent.subprocess, 'run', side_effect=self.command))
+
+    def output(self, cmd, **kwargs):
+        if cmd[0] == 'grub-editenv':
+            return self.env
+        if cmd[0] == 'lsinitrd' and '-f' in cmd:
+            return b'guard'
+        if cmd[0] == 'lsinitrd':
+            return '\n'.join('updates/t1bridge-trial/' + name + '.ko' for name in
+                             ('t1_cfgsel', 'appletbdrm', 'apple_t1_ncm', 'uvcvideo'))
+        self.fail(str(cmd))
+
+    def command(self, cmd, **kwargs):
+        if cmd[0] == 'grub-mkconfig':
+            generator = (self.root / persistent.GENERATOR).read_text()
+            entry = generator.split("cat <<'MACBOOK_T1_ENTRY'\n", 1)[1].rsplit('MACBOOK_T1_ENTRY\n', 1)[0]
+            Path(cmd[-1]).write_text(f'set default="{persistent.ENTRY}"\n' + self.original + entry)
+        elif cmd[0] == 'grub-editenv':
+            self.env = ''
+        return subprocess.CompletedProcess(cmd, 0)
+
+    def enable(self):
+        return persistent.enable('test-account', self.root, self.state)
+
+    def test_fresh_unenrolled_setup_repeat_and_full_rollback(self):
+        self.enable()  # No fingerprint files exist: enrollment happens after boot.
+        self.assertTrue(persistent.configured(self.root))
+        self.assertEqual((self.root / 'etc/pam.d/common-auth').read_text(), 'original password authentication')
+        for name, checksum in self.baseline.items():
+            if name != '/' + persistent.MENU:
+                self.assertEqual(build.digest(self.root / name.lstrip('/')), checksum)
+        self.run.reset_mock()
+        self.enable()
+        self.run.assert_not_called()
+        Transaction(self.state / 'files', self.root).rollback()
+        self.assertEqual((self.root / persistent.MENU).read_text(), self.original)
+        self.assertFalse((self.root / persistent.GENERATOR).exists())
+        self.assertFalse((self.root / persistent.DROPIN).exists())
+
+    def test_failed_menu_check_restores_only_new_boot_files(self):
+        def fail(cmd, **kwargs):
+            if cmd[0] == 'grub-script-check':
+                raise subprocess.CalledProcessError(1, cmd)
+            return self.command(cmd, **kwargs)
+        self.run.side_effect = fail
+        with self.assertRaises(subprocess.CalledProcessError):
+            self.enable()
+        self.assertEqual(Transaction(self.state / 'files', self.root).entries, self.prior)
+        self.assertEqual((self.root / trial.LEGACY_UDEV_RULE).read_bytes(), b'guard')
+        self.assertEqual((self.root / persistent.MENU).read_text(), self.original)
+        self.assertFalse((self.root / persistent.DROPIN).exists())
+        self.assertFalse((self.state / 'persistent-default.json').exists())
+
+    def test_missing_normal_fallback_is_rejected(self):
+        def invalid(cmd, **kwargs):
+            result = self.command(cmd, **kwargs)
+            if cmd[0] == 'grub-mkconfig':
+                path = Path(cmd[-1])
+                path.write_text(path.read_text().replace(self.original, ''))
+            return result
+        self.run.side_effect = invalid
+        with self.assertRaisesRegex(RuntimeError, 'fallback'):
+            self.enable()
+        self.assertEqual((self.root / persistent.MENU).read_text(), self.original)
+
+    def test_later_edits_are_preserved_on_repeat(self):
+        self.enable()
+        path = self.root / persistent.MENU
+        path.write_text('later user boot configuration')
+        self.run.reset_mock()
+        with self.assertRaisesRegex(RuntimeError, 'Managed Touch ID file changed'):
+            self.enable()
+        self.assertEqual(path.read_text(), 'later user boot configuration')
+        self.run.assert_not_called()
+
+    def test_other_pending_boot_is_preserved(self):
+        self.env = 'next_entry=another-os\n'
+        with self.assertRaisesRegex(RuntimeError, 'one-time boot selection'):
+            self.enable()
+        self.run.assert_not_called()
+
+    def test_owned_one_time_choice_is_consumed_when_enabling_persistence(self):
+        self.env = 'next_entry=' + trial.ENTRY + '\n'
+        self.enable()
+        self.assertEqual(self.env, '')
+        self.assertTrue(persistent.configured(self.root))
+
+
+class Setup(unittest.TestCase):
+    def test_target_scope_does_not_claim_other_kernels_or_models(self):
+        self.assertTrue(setup.supported(host()))
+        for key, value in (('kernel', 'new-kernel'), ('model', 'other-model'), ('distro', 'debian')):
+            self.assertFalse(setup.supported({**host(), key: value}))
+
+    def test_existing_bundle_never_rebuilds_or_installs_packages(self):
+        with tempfile.TemporaryDirectory() as folder, patch.object(build, 'PREFIX', Path(folder)), \
+             patch.object(deploy, 'verify', return_value={'kernel': host()['kernel'], 'tests_requested': True}), \
+             patch.object(setup.subprocess, 'run') as run:
+            setup.ensure_bundle(None, host(), True)
+            run.assert_not_called()
+
+    def test_build_runs_as_desktop_user_and_failed_build_is_not_installed(self):
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory() as folder, \
+             patch.object(build, 'PREFIX', Path(folder) / 'absent'), \
+             patch.object(setup.tempfile, 'mkdtemp', return_value=folder), \
+             patch.object(setup.os, 'chown'), \
+             patch.object(deploy, 'install') as install, \
+             patch.object(setup.subprocess, 'run', side_effect=subprocess.CalledProcessError(1, ['build'])) as run:
+            with self.assertRaises(subprocess.CalledProcessError):
+                setup.ensure_bundle(SimpleNamespace(pw_uid=1000, pw_gid=1000, pw_name='test-account'), host(), False)
+            self.assertEqual(run.call_args.args[0][:5], ['runuser', '-u', 'test-account', '--', 'python3'])
+            install.assert_not_called()
+
+    def test_install_stages_persistent_image_and_existing_failures_do_not_remove_it(self):
+        from types import SimpleNamespace
+        owner = SimpleNamespace(pw_name='test-account')
+        for previous in (None, {'phase': 'armed'}):
+            with self.subTest(previous=previous), \
+                 patch.object(setup, 'preflight', return_value=(owner, host())), \
+                 patch.object(setup, 'ensure_runtime'), patch.object(setup, 'ensure_bundle'), \
+                 patch.object(setup, 'existing_state', return_value=previous), \
+                 patch.object(trial, 'prepare') as prepare, patch.object(trial, 'rollback') as rollback, \
+                 patch.object(persistent, 'enable', side_effect=RuntimeError('synthetic failure')):
+                with self.assertRaisesRegex(RuntimeError, 'synthetic failure'):
+                    setup.install('test-account', False, desktop=False)
+                if previous is None:
+                    prepare.assert_called_once_with('test-account', arm=False)
+                    rollback.assert_called_once_with()
+                else:
+                    prepare.assert_not_called()
+                    rollback.assert_not_called()
+
+    def test_missing_runtime_without_dependency_permission_stops_before_install(self):
+        with patch.object(setup.subprocess, 'run', return_value=subprocess.CompletedProcess([], 1, stdout='')) as run:
+            with self.assertRaisesRegex(RuntimeError, 'runtime packages'):
+                setup.ensure_runtime(False)
+            self.assertEqual(run.call_count, 1)
 
 
 if __name__ == '__main__':

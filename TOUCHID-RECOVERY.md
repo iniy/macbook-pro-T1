@@ -1,15 +1,25 @@
 # Touch ID recovery
 
-## Current branch
+## Persistent installation and fallback
 
-The default installer only reports acceptance. The attended development trial
-has now been staged separately. It uses a copied module tree and an additional
-initramfs, leaving the normal kernel, normal initramfs, GRUB configuration and
-installed module tree intact. GRUB's `next_entry` selects the trial once and is
-cleared by the bootloader. A subsequent ordinary restart returns to the baseline.
-The trial has no newly enabled PAM rule.
+The default installer now selects **Ubuntu with Touch ID (MacBook T1)** on every
+boot of the exact supported target. This uses the isolated image already used
+by the trial. A five-second GRUB menu keeps the original **Ubuntu** entry available.
+If the persistent Touch ID boot is unusable, restart and explicitly select
+**Ubuntu**. Another restart by itself does not revert a persistent selection.
 
-If the trial fails to boot or the desktop is unusable, restart the machine again;
+Persistent configuration owns `/etc/grub.d/42_macbook_t1_touchid`,
+`/etc/default/grub.d/zz-macbook-t1-touchid.cfg` and the generated GRUB menu in the
+same private rollback journal as the trial. It preserves the normal kernel,
+normal initramfs, installed module tree, fingerprints and password PAM files.
+The image is tied to `7.3.0-9-generic`; a different running kernel is rejected.
+The explicit `--touchid-trial` option still selects its image for one boot only.
+
+The user requested persistent activation on 22 October after successful enrollment
+and basic matching. The default selection was installed; the first persistent
+boot and actual GDM fingerprint login have not yet been observed.
+
+For a one-boot trial only, if the desktop is unusable, restart the machine again;
 the one-time selection should have been consumed. The normal Ubuntu entry remains
 available from GRUB. Do not repeat the trial or attempt live USB resets as a repair.
 On 22 October, the user confirmed that the subsequent normal boot restored the
@@ -42,8 +52,8 @@ accepted the enrolled left index finger and rejected the unenrolled right index
 finger. The Touch Bar services remained active with zero restarts. Reboot
 persistence and full authentication/regression acceptance remain untested.
 
-To cancel an armed trial **before reboot**, or clean up after returning to a normal
-boot, use:
+To remove persistent Touch ID boot or cancel an armed trial, first select normal
+**Ubuntu** if currently running the T1Bridge image, then use:
 
 ```sh
 sudo python3 touchid/manage.py rollback-trial
@@ -51,6 +61,7 @@ sudo python3 touchid/manage.py rollback-trial
 
 Rollback disables only the trial units, restores its journaled files, clears its
 own pending boot choice, removes the trial image and DKMS build registration,
+restores the original GRUB menu, removes the persistent generator/default drop-in,
 and reverses only the added user group membership. It retains private recovery
 records and all calibration/biometric state. It refuses hot rollback while booted
 with `t1bridge.trial=1`: first return to the normal boot. Staging/rollback/restaging
@@ -61,7 +72,8 @@ The optional `macbook-t1-volume-osd@local` GNOME user extension was installed
 separately to show volume/mute feedback. It is inert on normal boots and is not
 part of the root-owned rollback transaction. Its independent removal commands
 are in `touchid/gnome-volume-osd/README.md`. A sign-out/sign-in loads it without
-leaving the current trial boot; a reboot consumes the normal fallback as usual.
+leaving the current T1Bridge boot. With persistent installation, reboot selects
+Touch ID again; choose normal Ubuntu explicitly when a fallback is needed.
 
 The corrected restaging verified the normal kernel, initramfs and `grub.cfg`
 against the original trial baseline and preserved all 31 current PAM files.

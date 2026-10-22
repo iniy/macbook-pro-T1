@@ -1,5 +1,21 @@
 # Touch ID change log
 
+## 2026-10-22 — persistent one-shot installation
+
+- Enabled Touch ID by default in the one-shot installer at the user's request,
+  scoped to MacBookPro13,2, Ubuntu 26.10 x86_64 and kernel `7.3.0-9-generic`.
+  Added `--no-touchid` and explicit account selection; retained one-boot trial mode.
+- Added prerequisite checks, missing runtime/build dependencies, source builds
+  as the desktop user, and verified reuse of the existing private bundle.
+- Reused the isolated boot image for a persistent GRUB default, keeping normal
+  Ubuntu in a five-second menu. Journaled boot changes support rollback and
+  reject subsequent local edits. Existing fingerprints and password PAM rules
+  are preserved; no automatic reboot or enrollment occurs.
+- Included the optional GNOME 51 volume OSD extension in desktop installation,
+  preserving disabled-extension preferences.
+- Passed 95 repository tests, including 37 Touch ID and 9 one-shot tests.
+  No physical fingerprint tests were repeated; full acceptance remains pending.
+
 ## 2026-10-22 — development integration, not promoted
 
 - Recorded baseline revision `ffa6df7`, kernel and drivers; the initial checkout

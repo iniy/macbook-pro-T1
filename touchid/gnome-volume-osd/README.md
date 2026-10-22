@@ -6,7 +6,9 @@ callers. This optional user extension observes the current output's volume and
 mute properties and displays the native Shell OSD. It never changes the volume,
 sends keys, handles fingerprints, or participates in authentication.
 
-The extension is inert without `t1bridge.trial=1`. It follows changes to the
+The one-shot installer installs this extension as the desktop user. The extension
+is inert without `t1bridge.trial=1`, the service guard used by both the isolated
+one-boot trial and persistent Touch ID entry. It follows changes to the
 default output, coalesces volume/mute notifications, suppresses initial-state
 popups, and disconnects all handlers when disabled. Output changes from other
 applications also show an indicator during trial boots. A command that leaves
@@ -35,5 +37,5 @@ gnome-extensions disable macbook-t1-volume-osd@local
 gnome-extensions uninstall macbook-t1-volume-osd@local
 ```
 
-The one-boot trial's next reboot returns to the normal stack. Sign-out/sign-in
-keeps the current trial boot, allowing the OSD test without rearming GRUB.
+The one-boot trial's next reboot returns to the normal stack; persistent
+installation keeps selecting Touch ID. Sign-out/sign-in keeps the current boot.

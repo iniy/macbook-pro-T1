@@ -83,9 +83,12 @@ class Transaction:
         self.save()  # Write-ahead; interrupted copies are recoverable.
         atomic(target, data, mode)
 
-    def rollback(self):
+    def rollback(self, names=None):
+        """Restore all owned files, or only a failed extension of this transaction."""
         conflicts = []
         for entry in list(reversed(self.entries)):
+            if names is not None and entry['name'] not in names:
+                continue
             target = self.target(entry['name'])
             before = (self.state / entry['before']).read_bytes() if entry['before'] else None
             if target.exists() and not target.is_file():

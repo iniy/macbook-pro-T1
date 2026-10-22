@@ -101,7 +101,7 @@ def guard_legacy_udev(tx):
            mode=path.stat().st_mode & 0o777, replace=True)
 
 
-def prepare(user):
+def prepare(user, arm=True):
     if os.geteuid() != 0:
         raise RuntimeError('Trial staging requires root')
     host = inspect()
@@ -230,11 +230,12 @@ def prepare(user):
         run('grub-script-check', '/boot/grub/custom.cfg')
         if any(digest(Path(p)) != expected for p, expected in baseline.items()):
             raise RuntimeError('A normal boot artifact changed; do not arm the trial')
-        # Arm only after everything is staged. GRUB clears this one-time choice.
-        run('grub-reboot', ENTRY)
-        meta['phase'] = 'armed'
+        # Persistent installation uses the same image without a one-time choice.
+        if arm:
+            run('grub-reboot', ENTRY)
+        meta['phase'] = 'armed' if arm else 'staged'
         save()
-        print('One-boot T1Bridge trial armed. Reboot when ready. The following normal boot uses the original image.')
+        print('One-boot T1Bridge trial armed.' if arm else 'T1Bridge boot image staged.')
     except BaseException:
         rollback()
         raise
@@ -281,7 +282,8 @@ def rollback():
         raise RuntimeError('Reboot into the normal entry before rollback; never hot-remove the live T1 stack')
     meta = json.loads((STATE / 'state.json').read_text())
     grubenv = subprocess.check_output(['grub-editenv', '/boot/grub/grubenv', 'list'], text=True)
-    if 'next_entry=' + ENTRY in grubenv.splitlines():
+    if any('next_entry=' + entry in grubenv.splitlines()
+           for entry in (ENTRY, 'macbook-t1-touchid')):
         run('grub-editenv', '/boot/grub/grubenv', 'unset', 'next_entry')
     for unit in reversed(meta['enabled']):
         if unit.startswith('user:'):
@@ -302,6 +304,7 @@ def rollback():
     if src.exists():
         shutil.rmtree(src)
     (Path('/boot') / meta['image']).unlink(missing_ok=True)
+    (STATE / 'persistent-default.json').unlink(missing_ok=True)
     meta['phase'] = 'rolled-back'
     atomic(STATE / 'state.json', (json.dumps(meta, indent=2) + '\n').encode())
     print('Trial configuration removed. Normal modules and initramfs were never replaced. Private state retained.')
