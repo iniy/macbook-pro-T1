@@ -1,8 +1,10 @@
 # Touch ID implementation status
 
-This development branch builds and privately stages T1Bridge, but does **not yet
-provide working Touch ID authentication on this Mac**. The released installer
-must not activate it until physical, security and regression acceptance passes.
+This development branch builds and privately stages T1Bridge. **Physical
+enrollment, correct-finger matching and wrong-finger rejection now pass in the
+one-boot trial.** Login, unlock, sudo, reboot persistence and the remaining
+acceptance checks are still pending. The released installer must not activate
+Touch ID until physical, security and regression acceptance passes.
 
 ## Implemented
 
@@ -55,7 +57,8 @@ must not activate it until physical, security and regression acceptance passes.
 
 ## Remaining implementation and hardware boundary
 
-The current T1 is in USB configuration 1. Upstream SEP transport requires
+The normal boot uses USB configuration 1; the current corrected trial uses
+configuration 2. Upstream SEP transport requires
 configuration 2, selected early by `t1_cfgsel`; its Arch package blocks
 `apple_ibridge`, `apple_touchbar`, `apple_ib_tb` and `apple_ib_als`. It also
 replaces `appletbdrm` and `uvcvideo`. Loading those drivers together or hot-resetting
@@ -67,20 +70,29 @@ DKMS without installing modules into the normal module tree. The legacy Touch
 Bar service is suppressed only on that trial boot. A conditional fprintd launcher
 uses the private daemon on trial boots and the distribution daemon otherwise.
 The next ordinary boot retains the original image and drivers. Staging, pre-boot
-rollback and restaging succeeded; hardware behavior and post-use rollback await
-physical testing.
+rollback and restaging succeeded. The legacy udev rule is guarded on trial boots
+to preserve configuration 2, and machine-data import waits for xART readiness.
+Sensor operations and visible Touch Bar availability now pass; full hardware
+regression and rollback after successful enrollment remain pending.
 
 A new unprivileged PipeWire/MPRIS provider supplies volume/mute/media control and
 GNOME display-power state through upstream's documented provider v1 protocol.
 It validates fixed actions, uses bounded calls and never participates in
 fingerprint authorization. Read-only status and synthetic action tests pass;
-physical controls remain unverified.
+the user confirmed physical volume and mute control. The optional GNOME 51
+extension in `touchid/gnome-volume-osd/` supplies the native OSD for external
+volume changes during trial boots. It is installed for the test account but
+awaits a new desktop session and visual confirmation. Other controls remain
+unverified.
 
-Secure import, enrollment, matching and keybag persistence are implemented
-upstream, but have not been exercised on this host. No fingerprint was enrolled,
-no PAM rule was enabled, and no automatic firmware recovery was run. Independent
-matching and password-fallback tests must precede sudo/GNOME/GDM activation.
-The local EFI backup does not establish successful same-sensor import.
+Automatic same-sensor import, GNOME Settings enrollment and independent matching
+were exercised on this host on 22 October 2026. A left index fingerprint matched;
+an unenrolled right index fingerprint was rejected. The initial terminal
+enrollment failed during keybag preparation before the later Settings enrollment
+succeeded; the cause remains unproven. Reboot persistence is untested. No PAM
+rule was enabled and no automatic firmware recovery was run. Consumer-specific
+authentication and password-fallback acceptance remain required for
+sudo/GNOME/GDM. See TOUCHID-TEST-RESULTS.md for the exact observed scope.
 
 ## Development commands
 
@@ -125,8 +137,10 @@ runs the ordinary installer and stages the one-boot trial:
 sudo ./install.sh --no-install-deps --touchid-trial
 ```
 
-There is no automatic reboot. Return to this chat after restarting for calibration,
-physical regression checks and supervised enrollment. Do not enable PAM or enroll
-manually before independent verification and GNOME/GDM activation controls are
-prepared. A permanent default installation remains gated, rather than silently
-turning the development trial into a release.
+There is no automatic reboot. After restarting, confirm import and service
+readiness before supervised enrollment. GNOME Settings → System → Users provides
+the fingerprint enrollment interface when the trial reader is available;
+`gnome-control-center system users` opens that panel. Verify the enrolled finger
+and rejection of an unenrolled finger independently before authentication
+integration. Keep PAM unchanged until consumer-specific activation and password
+fallback tests are prepared. A permanent default installation remains gated.

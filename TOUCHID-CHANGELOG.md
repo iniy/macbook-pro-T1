@@ -25,4 +25,14 @@ upstream delta. No success is inferred from a compiled binary or started service
 - Validated real pre-boot staging, rollback and restaging. Normal boot-file
   hashes stayed unchanged. The normal installer repeat run passed.
 - Runtime Rust: 1,046 pass / 3 ignored; libfprint: 98 pass / 33 unrelated-driver
-  skips; fprintd/PAM: 560 pass. Physical and reboot acceptance remain pending.
+  skips; fprintd/PAM: 560 pass. Full physical and reboot acceptance remain pending.
+- Fixed trial USB configuration switching by guarding the legacy udev rule and
+  checking its exact bytes in the trial initramfs. Preserved ordinary-boot behavior.
+- Accepted consumed empty GRUB boot choices while preserving pending choices;
+  ordered machine-data import after private xART readiness.
+- Confirmed same-sensor import, left-index enrollment and matching, rejection of
+  an unenrolled right index finger, visible Touch Bar, and volume/mute controls.
+  Retained the initial keybag-preparation failure and untested acceptance rows.
+- Added an optional GNOME 51 volume OSD extension, inactive outside trial boots.
+  Syntax and packaging pass; sign-out/sign-in and visual acceptance remain pending.
+- Re-ran the complete top-level suite: 81 tests passed before publishing to main.

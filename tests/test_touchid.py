@@ -201,6 +201,48 @@ class Bundle(unittest.TestCase):
 
 
 class Trial(unittest.TestCase):
+    def test_consumed_boot_choice_allows_restage_but_pending_choice_is_preserved(self):
+        for env in ('', 'next_entry=\n', 'saved_entry=0\nnext_entry=\n'):
+            self.assertFalse(trial.has_pending_boot(env))
+        for choice in ('0', 'other-os', trial.ENTRY):
+            self.assertTrue(trial.has_pending_boot('next_entry=' + choice + '\n'))
+
+    def test_legacy_udev_guard_and_rollback_preserve_normal_boot_rule(self):
+        with tempfile.TemporaryDirectory() as folder:
+            base = Path(folder)
+            root = base / 'root'
+            path = root / trial.LEGACY_UDEV_RULE
+            path.parent.mkdir(parents=True)
+            original = (ROOT / 'config' / path.name).read_bytes()
+            path.write_bytes(original)
+            path.chmod(0o640)
+            tx = Transaction(base / 'transaction', root)
+            trial.guard_legacy_udev(tx)
+            guarded = path.read_bytes()
+            self.assertIn(b'IMPORT{cmdline}="t1bridge.trial"', guarded)
+            self.assertLess(guarded.index(b'GOTO="macbook_t1_trial_end"'),
+                            guarded.index(b'ATTR{bConfigurationValue}="1"'))
+            self.assertIn(original, guarded)
+            self.assertTrue(guarded.endswith(b'LABEL="macbook_t1_trial_end"\n'))
+            tx.rollback()
+            self.assertEqual(path.read_bytes(), original)
+            self.assertEqual(path.stat().st_mode & 0o777, 0o640)
+
+    def test_missing_or_modified_legacy_udev_rule_is_preserved(self):
+        for content in (None, b'# local customization\n'):
+            with self.subTest(content=content), tempfile.TemporaryDirectory() as folder:
+                base = Path(folder)
+                root = base / 'root'
+                path = root / trial.LEGACY_UDEV_RULE
+                path.parent.mkdir(parents=True)
+                if content is not None:
+                    path.write_bytes(content)
+                tx = Transaction(base / 'transaction', root)
+                with self.assertRaisesRegex(RuntimeError, 'legacy T1 udev rule'):
+                    trial.guard_legacy_udev(tx)
+                self.assertEqual(tx.entries, [])
+                self.assertEqual(path.read_bytes() if path.exists() else None, content)
+
     def test_single_boot_entry_preserves_root_and_power_arguments(self):
         config = """menuentry 'Ubuntu' --id 'synthetic-normal' {
  search --fs-uuid --set=root synthetic-uuid
@@ -222,6 +264,9 @@ class Trial(unittest.TestCase):
     def test_units_only_start_on_trial_boot(self):
         unit = trial.conditioned('[Unit]\nDescription=Synthetic\n[Service]\nExecStart=/usr/bin/true\n')
         self.assertIn('ConditionKernelCommandLine=t1bridge.trial=1', unit)
+        self.assertIn('Environment=T1BRIDGE_DIAGNOSTICS=1', unit)
+        socket = trial.conditioned('[Unit]\nDescription=Synthetic\n[Socket]\nListenStream=1\n')
+        self.assertNotIn('Environment=', socket)
         with self.assertRaises(RuntimeError):
             trial.conditioned('[Service]\nExecStart=/usr/bin/true\n')
 
@@ -236,14 +281,31 @@ class Trial(unittest.TestCase):
             shutil.copytree(upstream, prefix / 'integration/systemd')
             root = base / 'root'
             root.mkdir()
+            legacy_rule = root / trial.LEGACY_UDEV_RULE
+            legacy_rule.parent.mkdir(parents=True)
+            original = (ROOT / 'config' / legacy_rule.name).read_bytes()
+            legacy_rule.write_bytes(original)
             tx = Transaction(base / 'transaction', root)
             with patch.object(trial, 'PREFIX', prefix):
                 trial.install_configuration(tx)
             names = [x['name'] for x in tx.entries]
             self.assertFalse(any(n.startswith(('etc/pam.d/', 'boot/', 'lib/modules/')) for n in names))
             self.assertIn('etc/systemd/system/macbook-t1-touchbar.service.d/90-t1bridge-trial.conf', names)
+            self.assertIn(trial.LEGACY_UDEV_RULE, names)
+            units = root / 'etc/systemd/system'
+            importer = (units / 't1bridge-import.service').read_text()
+            xart = (units / 't1-xart-storage@.service').read_text()
+            self.assertNotIn('t1bridge-import.service', trial.UNITS)
+            self.assertNotIn('WantedBy=multi-user.target', importer)
+            self.assertIn('Wants=t1bridge-import.service\n', xart)
+            self.assertIn('Before=t1bridge-import.service\n', xart)
+            self.assertIn('Type=notify\n', xart)
+            self.assertIn('Requires=t1-ncm-ready@%i.service\n', xart)
+            self.assertIn('t1-ncm-ready@%i.service\n', next(
+                line + '\n' for line in xart.splitlines() if line.startswith('After=')))
             tx.rollback()
-            self.assertFalse(any(p.is_file() for p in root.rglob('*')))
+            self.assertEqual([p for p in root.rglob('*') if p.is_file()], [legacy_rule])
+            self.assertEqual(legacy_rule.read_bytes(), original)
 
 
 class Desktop(unittest.TestCase):

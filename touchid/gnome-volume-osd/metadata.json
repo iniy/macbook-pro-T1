@@ -1,0 +1,7 @@
+{
+  "uuid": "macbook-t1-volume-osd@local",
+  "name": "MacBook T1 Volume Indicator",
+  "description": "Show GNOME's volume indicator for output volume and mute changes during the MacBook T1 trial.",
+  "shell-version": ["51"],
+  "version": 1
+}

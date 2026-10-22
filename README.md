@@ -12,9 +12,10 @@ One-shot setup for the late-2016 MacBook Pro 13,2 on Ubuntu 26.10:
 Test target: Ubuntu 26.10, kernel `7.3.0-9-generic`, matching Ubuntu source and
 headers `7.3.0-9.9`. Other releases, kernels and Mac models are not claimed.
 
-Touch ID is under development on `codex/touchid-integration`. The default
-installer reports its prerequisites and acceptance status. It does **not** claim
-Touch ID is working or enable it by default before physical/security validation.
+Touch ID remains under development. Enrollment, correct-finger matching and
+wrong-finger rejection passed in the attended trial; login, unlock, sudo and
+reboot persistence remain unvalidated. The default installer reports prerequisites
+and acceptance status and does **not** enable Touch ID before full validation.
 See [implementation](TOUCHID-IMPLEMENTATION.md), [test evidence](TOUCHID-TEST-RESULTS.md)
 and [recovery](TOUCHID-RECOVERY.md). The attended `--touchid-trial` option is a
 development-only, one-boot trial from a verified private build. It will not be

@@ -19,8 +19,9 @@ STATE = Path('/var/lib/macbook-t1-touchid-trial')
 FLAG = 't1bridge.trial=1'
 ENTRY = 'macbook-t1-touchid-trial'
 HERE = Path(__file__).resolve().parent
+LEGACY_UDEV_RULE = 'etc/udev/rules.d/90-macbook-t1-touchbar.rules'
 UNITS = ('t1-touchbar-hw.service', 't1-touchid-auth.socket',
-         't1bridge-fingerprint.socket', 't1bridge-import.service')
+         't1bridge-fingerprint.socket')
 
 
 def run(*args, **kwargs):
@@ -29,6 +30,12 @@ def run(*args, **kwargs):
 
 def booted():
     return FLAG in Path('/proc/cmdline').read_text().split()
+
+
+def has_pending_boot(grubenv):
+    # GRUB can leave next_entry= after consuming a one-time boot choice.
+    return any(line.startswith('next_entry=') and line.partition('=')[2]
+               for line in grubenv.splitlines())
 
 
 def menuentry(config, kernel, image):
@@ -77,7 +84,21 @@ def menuentry(config, kernel, image):
 def conditioned(text):
     if '[Unit]\n' not in text:
         raise RuntimeError('Unit has no Unit section')
-    return text.replace('[Unit]\n', '[Unit]\nConditionKernelCommandLine=' + FLAG + '\n', 1)
+    text = text.replace('[Unit]\n', '[Unit]\nConditionKernelCommandLine=' + FLAG + '\n', 1)
+    return text.replace('[Service]\n', '[Service]\nEnvironment=T1BRIDGE_DIAGNOSTICS=1\n', 1)
+
+
+def guard_legacy_udev(tx):
+    """Keep configuration 1 on normal boots without evicting the trial stack."""
+    path = tx.target(LEGACY_UDEV_RULE)
+    expected = (HERE.parent / 'config' / path.name).read_bytes()
+    if not path.is_file() or path.read_bytes() != expected:
+        raise RuntimeError('Missing or modified legacy T1 udev rule; refusing trial staging')
+    guard = (b'# Leave USB configuration selection to T1Bridge on trial boots.\n'
+             b'IMPORT{cmdline}="t1bridge.trial"\n'
+             b'ENV{t1bridge.trial}=="1", GOTO="macbook_t1_trial_end"\n')
+    tx.put(LEGACY_UDEV_RULE, guard + expected + b'\nLABEL="macbook_t1_trial_end"\n',
+           mode=path.stat().st_mode & 0o777, replace=True)
 
 
 def prepare(user):
@@ -119,7 +140,7 @@ def prepare(user):
     if 'custom.cfg' not in grub:
         raise RuntimeError('GRUB does not include custom.cfg; refusing to rewrite normal boot entries')
     grubenv = subprocess.check_output(['grub-editenv', '/boot/grub/grubenv', 'list'], text=True)
-    if any(line.startswith('next_entry=') for line in grubenv.splitlines()):
+    if has_pending_boot(grubenv):
         raise RuntimeError('A one-time boot choice is already pending; preserve it')
     kernel = host['kernel']
     image = 'initrd.img-' + kernel + '-t1bridge-trial'
@@ -173,6 +194,7 @@ def prepare(user):
         # This image is separate; /boot/initrd.img-<kernel> stays byte-identical.
         run('dracut', '--force', '--kmoddir', destination, '--force-drivers',
             't1_cfgsel appletbdrm apple_t1_ncm uvcvideo',
+            '--include', '/' + LEGACY_UDEV_RULE, '/' + LEGACY_UDEV_RULE,
             '--include', '/etc/udev/rules.d/90-t1bridge-xart.rules', '/etc/udev/rules.d/90-t1bridge-xart.rules',
             '--include', '/etc/systemd/network/50-t1bridge-ncm.link', '/etc/systemd/network/50-t1bridge-ncm.link',
             Path('/boot') / image, kernel)
@@ -180,6 +202,12 @@ def prepare(user):
         for name in ('t1_cfgsel.ko', 'appletbdrm.ko', 'apple_t1_ncm.ko', 'uvcvideo.ko'):
             if 'updates/t1bridge-trial/' + name not in listing:
                 raise RuntimeError('Trial image does not contain the intended module: ' + name)
+        if LEGACY_UDEV_RULE not in listing:
+            raise RuntimeError('Trial image is missing the legacy T1 udev guard')
+        embedded_rule = subprocess.check_output(['lsinitrd', '-f', LEGACY_UDEV_RULE,
+                                                 str(Path('/boot') / image)])
+        if embedded_rule != Path('/' + LEGACY_UDEV_RULE).read_bytes():
+            raise RuntimeError('Trial image contains a different legacy T1 udev rule')
         groups = os.getgrouplist(user, account.pw_gid)
         run('systemd-sysusers', PREFIX / 'integration/systemd/t1bridge.sysusers')
         if grp.getgrnam('t1bridge').gr_gid not in groups:
@@ -213,6 +241,7 @@ def prepare(user):
 
 
 def install_configuration(tx):
+    guard_legacy_udev(tx)
     source = PREFIX / 'integration/systemd'
     for path in [*source.glob('*.service'), *source.glob('*.socket')]:
         content = path.read_text().replace('/usr/lib/t1bridge/', str(PREFIX / 'libexec') + '/')
@@ -220,7 +249,11 @@ def install_configuration(tx):
         content = content.replace('/usr/bin/t1-touchid', str(PREFIX / 'bin/t1-touchid'))
         if path.name == 't1bridge-import.service':
             content = content.replace('[Unit]\n', '[Unit]\nAfter=t1-touchbar-hw.service\n')
-            content += '\n[Install]\nWantedBy=multi-user.target\n'
+        if path.name == 't1-xart-storage@.service':
+            # Type=notify reaches readiness after the dynamic NCM link is ready.
+            # Starting the importer at multi-user.target raced that preparation.
+            content = content.replace('[Unit]\n', '[Unit]\nWants=t1bridge-import.service\n'
+                                      'Before=t1bridge-import.service\n')
         tx.put('etc/systemd/system/' + path.name, conditioned(content).encode())
     user_unit = (source / 'user/t1-touchbar.service').read_text().replace('/usr/lib/t1bridge/', str(PREFIX / 'libexec') + '/')
     user_unit = user_unit.replace('[Service]\n', '[Service]\nEnvironment=T1BRIDGE_DESKTOP_PROVIDER=/usr/local/libexec/macbook-t1-touchid-desktop\n')

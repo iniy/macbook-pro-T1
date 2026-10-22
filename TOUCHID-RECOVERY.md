@@ -12,7 +12,35 @@ The trial has no newly enabled PAM rule.
 If the trial fails to boot or the desktop is unusable, restart the machine again;
 the one-time selection should have been consumed. The normal Ubuntu entry remains
 available from GRUB. Do not repeat the trial or attempt live USB resets as a repair.
-Boot fallback itself still needs physical confirmation.
+On 22 October, the user confirmed that the subsequent normal boot restored the
+visible Touch Bar. Diagnostics also confirmed configuration 1, both legacy
+drivers, the input/control interfaces and the active boot service.
+
+The 22 October trial boot exposed a staging bug: the existing
+`90-macbook-t1-touchbar.rules` switched the T1 from USB configuration 2 back to
+configuration 1. The replacement display disappeared, while the normal Touch Bar
+service was correctly skipped by `t1bridge.trial=1`. If the Touch Bar is blank
+after that trial, restart into the normal Ubuntu entry, then run the rollback
+command below. The observed GRUB environment had an empty `next_entry`, and
+`GRUB_DEFAULT=0` still selected normal Ubuntu.
+
+The corrected staging code wraps that exact legacy rule in a trial-boot guard,
+journals its original contents/mode for rollback, and explicitly includes the
+guard in the separate trial initramfs. Ordinary boots keep the configuration-1
+rule. Missing or locally modified rules stop staging for inspection. The corrected
+trial has now retained configuration 2 with a visible Touch Bar. Restaging also
+accepts GRUB's consumed, empty `next_entry=` value while refusing any nonempty
+pending choice, and checks the guard's exact contents in the new trial image.
+The corrected trial was rebuilt and armed on 22 October after the successful
+normal-boot recovery. The installed guard passed `udevadm verify`, its contents
+matched the extracted trial-image copy, and GRUB reported
+`next_entry=macbook-t1-touchid-trial`. The normal Touch Bar remained active
+through staging. A later trial exposed an importer/readiness race; staging now
+starts import after the private xART service signals readiness. The current trial
+completed same-sensor import and GNOME Settings enrollment. Independent matching
+accepted the enrolled left index finger and rejected the unenrolled right index
+finger. The Touch Bar services remained active with zero restarts. Reboot
+persistence and full authentication/regression acceptance remain untested.
 
 To cancel an armed trial **before reboot**, or clean up after returning to a normal
 boot, use:
@@ -26,7 +54,20 @@ own pending boot choice, removes the trial image and DKMS build registration,
 and reverses only the added user group membership. It retains private recovery
 records and all calibration/biometric state. It refuses hot rollback while booted
 with `t1bridge.trial=1`: first return to the normal boot. Staging/rollback/restaging
-have been tested before boot; removal after hardware use has not.
+have been tested before boot. Rollback after the failed hardware trial also
+succeeded on 22 October; rollback after a working Touch ID session is untested.
+
+The optional `macbook-t1-volume-osd@local` GNOME user extension was installed
+separately to show volume/mute feedback. It is inert on normal boots and is not
+part of the root-owned rollback transaction. Its independent removal commands
+are in `touchid/gnome-volume-osd/README.md`. A sign-out/sign-in loads it without
+leaving the current trial boot; a reboot consumes the normal fallback as usual.
+
+The corrected restaging verified the normal kernel, initramfs and `grub.cfg`
+against the original trial baseline and preserved all 31 current PAM files.
+Its private verification record is
+`/var/tmp/macbook-t1-corrected-trial-0dlmwm2l/` (root-only); the earlier guard-only
+restaging record is `/var/tmp/macbook-t1-corrected-trial-97ubdzjb/`.
 
 Remove the private bundle with:
 
@@ -69,13 +110,15 @@ match it to the live sensor. Use preserved local EFI or an explicitly selected
 same-Mac backup. Never use donor data or fabricated records. An unreadable source
 is not proof it was lost.
 
-When the live T1Bridge stack is eventually validated, upstream's local command is:
+Automatic same-sensor import has succeeded in the current corrected trial; no
+manual re-import is needed. If deliberate recovery from a same-Mac backup is
+needed in the future, upstream's local command is:
 
 ```sh
 sudo /opt/macbook-t1-touchid/0.1.12-81cbdf8/bin/t1bridge machine-data import --from /absolute/path/to/same-mac-backup
 ```
 
-Do not run that command as a fix for the currently conflicting driver stack.
+Do not run that command to work around a conflicting driver stack.
 Upstream documents restoring macOS on this machine through a complete first boot
 as a way to regenerate lost data. That can erase Linux; it requires separate
 backup and deliberate recovery planning. This installer never restores macOS,
