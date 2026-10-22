@@ -55,7 +55,7 @@ def report(args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['auto', 'check', 'preflight', 'install', 'dependencies', 'build', 'install-bundle', 'verify-bundle', 'remove-bundle', 'package-deb', 'trial', 'rollback-trial'])
+    parser.add_argument('action', choices=['auto', 'check', 'preflight', 'install', 'install-resume', 'dependencies', 'build', 'install-bundle', 'verify-bundle', 'remove-bundle', 'package-deb', 'trial', 'rollback-trial'])
     parser.add_argument('--work', type=Path, default=Path(__file__).resolve().parents[1] / 'sources/touchid-build')
     parser.add_argument('--bundle', type=Path)
     parser.add_argument('--output', type=Path)
@@ -68,7 +68,7 @@ def main():
     try:
         if args.action in ('auto', 'check'):
             return report(args)
-        if args.action in ('preflight', 'install', 'trial', 'rollback-trial'):
+        if args.action in ('preflight', 'install', 'install-resume', 'trial', 'rollback-trial'):
             if os.geteuid() != 0:
                 raise RuntimeError('Touch ID installation and staging require root')
             import fcntl
@@ -76,10 +76,12 @@ def main():
             fd = os.open('/run/macbook-t1-touchid.lock', os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
             try:
                 fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                if args.action in ('preflight', 'install'):
+                if args.action in ('preflight', 'install', 'install-resume'):
                     import setup
                     if args.action == 'preflight':
                         setup.preflight(args.user, args.install_deps)
+                    elif args.action == 'install-resume':
+                        setup.install_resume(args.user)
                     else:
                         setup.install(args.user, args.install_deps, desktop=not args.no_desktop)
                 elif args.action == 'trial':

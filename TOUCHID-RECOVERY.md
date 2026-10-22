@@ -16,8 +16,43 @@ The image is tied to `7.3.0-9-generic`; a different running kernel is rejected.
 The explicit `--touchid-trial` option still selects its image for one boot only.
 
 The user requested persistent activation on 22 October after successful enrollment
-and basic matching. The default selection was installed; the first persistent
-boot and actual GDM fingerprint login have not yet been observed.
+and basic matching. The first persistent boot selected the isolated image and
+retained the saved fingerprint record. Actual GDM fingerprint login has not been
+confirmed. The first reported lid-close sleep cycle left the Touch Bar dark;
+see the s2idle recovery below.
+
+## Dark Touch Bar after s2idle
+
+T1Bridge 0.1.12 parks its display at suspend but does not write the awake value
+at resume. The installer now supplies a narrowly scoped workaround in
+`/usr/lib/systemd/system-sleep/90-macbook-t1-touchid-resume`. It runs only after
+`suspend`, on MacBookPro13,2 with the T1Bridge boot flag and selected s2idle mode.
+It checks the exact T1/configuration/interface and device node, then reads the
+display power state. An already-awake panel receives no write. A parked panel
+gets the documented awake report, with readback verification and a 15-second
+deadline. The hook never opens the fingerprint transport or changes its records.
+
+To add the hook to an existing staged/persistent installation and apply the
+display wake immediately:
+
+```sh
+sudo python3 touchid/manage.py install-resume --user "$USER"
+```
+
+This does not suspend or reboot the machine. The hook joins the existing file
+journal and is removed by `rollback-trial`. For read-only display-power diagnosis:
+
+```sh
+sudo python3 touchid/resume.py check
+journalctl -b -u systemd-suspend.service --no-pager
+```
+
+An acknowledged awake value does not prove physical illumination or a successful
+fingerprint match. Inspect the keybag/broker logs separately if Touch ID remains
+unavailable. Do not delete or re-enroll fingerprints as a recovery step. This
+workaround does not attempt S3/deep ACPI wake or a composite USB reset.
+
+## Earlier one-boot trial recovery
 
 For a one-boot trial only, if the desktop is unusable, restart the machine again;
 the one-time selection should have been consumed. The normal Ubuntu entry remains

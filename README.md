@@ -54,7 +54,8 @@ components, then runs these steps:
    them, then enables GNOME Bounce Keys with a 100 ms delay.
 5. `touchid/manage.py install` — installs missing dependencies, builds or reuses
    the private fingerprint stack, installs the GNOME 51 volume/mute OSD helper,
-   and enables persistent Touch ID boot. New builds run without root; driver
+   enables persistent Touch ID boot, and installs the T1 display wake hook for
+   s2idle resume. New builds run without root; driver
    staging and boot selection run under a sleep/shutdown inhibitor. Repeat runs
    verify and preserve existing configuration. Local edits or different kernels
    stop the installation instead of silently replacing boot files.
@@ -65,6 +66,11 @@ fingerprint PAM service handles login; the installer does not enable fingerprint
 authentication in the shared sudo/password PAM stack. The first source build
 requires network access and can take considerable time. There is no automatic
 reboot or fingerprint enrollment.
+
+For an existing Touch ID installation whose Touch Bar stays dark after sleep,
+add the resume hook with `sudo python3 touchid/manage.py install-resume --user "$USER"`.
+It also applies the display wake immediately. See
+[recovery details](TOUCHID-RECOVERY.md#dark-touch-bar-after-s2idle).
 
 Useful options:
 

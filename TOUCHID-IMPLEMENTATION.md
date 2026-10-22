@@ -23,6 +23,12 @@ mark those checks as passed.
   Fingerprints are neither read nor deleted. Failed promotion restores only its
   new boot files; full rollback restores the original menu and removes its
   generator/default drop-in.
+- The one-shot installer includes a root-owned system-sleep hook for the
+  MacBookPro13,2 T1Bridge s2idle path. It dynamically finds the display HID
+  interface and restores the awake value only when feature report 3 says the
+  panel is parked. It checks the readback and reports errors; it does not reset
+  USB, switch configurations, call ACPI methods or touch biometric storage.
+  Existing installations can add it with `touchid/manage.py install-resume`.
 - USB 05ac:8600 and active configuration/driver discovery, distribution/version,
   init, desktop, tools and exact header checks. EFI preflight tests file presence
   only; same-sensor validation belongs to the upstream importer. No payload or
@@ -88,6 +94,20 @@ rollback and restaging succeeded. The legacy udev rule is guarded on trial boots
 to preserve configuration 2, and machine-data import waits for xART readiness.
 Sensor operations and visible Touch Bar availability now pass; full hardware
 regression and rollback after successful enrollment remain pending.
+
+On the first observed persistent boot, a lid-close s2idle cycle completed but
+the user reported both Touch Bar darkness and unavailable Touch ID afterward.
+The display device and services remained present; the keybag relay logged a
+lost connection and recovered after one automatic restart. A saved fingerprint
+record remained listed. The installed 0.1.12 display driver parks the panel on
+suspend but omits its awake write on resume. The downstream hook addresses that
+specific omission, following the protocol evidence in upstream
+[PR #47](https://github.com/standardagents/t1bridge/pull/47) and
+[issue #18](https://github.com/standardagents/t1bridge/issues/18). The live helper
+changed parked to awake, and the user confirmed both Touch Bar and Touch ID
+working again. Automatic recovery across a further sleep cycle remains pending;
+the test report records the observed scope. S3/deep sleep is outside this hook's
+scope.
 
 A new unprivileged PipeWire/MPRIS provider supplies volume/mute/media control and
 GNOME display-power state through upstream's documented provider v1 protocol.

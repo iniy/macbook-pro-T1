@@ -11,6 +11,7 @@ import adapters
 import build
 import deploy
 import persistent
+import resume
 from probe import inspect
 import trial
 
@@ -120,6 +121,7 @@ def install(user=None, install_deps=False, desktop=True):
     if fresh:
         trial.prepare(owner.pw_name, arm=False)
     try:
+        resume.install(trial.Transaction(trial.STATE / 'files'))
         persistent.enable(owner.pw_name)
     except BaseException:
         if fresh:
@@ -127,3 +129,13 @@ def install(user=None, install_deps=False, desktop=True):
         raise
     print('After reboot: Settings → System → Users → Fingerprint Login. Existing enrollments are retained.')
     print('GNOME uses its distribution fingerprint PAM service; common password/sudo PAM rules are unchanged.')
+
+
+def install_resume(user=None):
+    preflight(user)
+    if existing_state() is None:
+        raise RuntimeError('Install Touch ID before adding its resume integration')
+    resume.install(trial.Transaction(trial.STATE / 'files'))
+    print('Installed automatic T1 display wake after s2idle; boot files and fingerprints are unchanged.', flush=True)
+    if resume.main(['recover']):
+        raise RuntimeError('Resume hook is installed, but live display wake did not complete')

@@ -1,5 +1,21 @@
 # Touch ID change log
 
+## 2026-10-22 — s2idle display wake recovery
+
+- Investigated the first reported lid-close failure on the persistent T1 boot:
+  the host resumed and the device stayed present, but the panel was dark. The
+  keybag relay recovered after one restart and the saved fingerprint remained.
+- Added the missing display awake report as a bounded system-sleep hook,
+  restricted to this model, configuration 2, display HID interface 6 and s2idle.
+  Added it to fresh and repeated installation, journaled rollback, and an
+  `install-resume` command for existing installations.
+- Added synthetic coverage for discovery, boot/sleep scope, already-awake
+  idempotence, changed device nodes, malformed reports and failed writes/readback.
+  All 103 repository tests passed. This follows upstream PR #47/issue #18
+  protocol evidence. The live helper changed parked to awake and the user
+  confirmed both Touch Bar and Touch ID working; automatic recovery on a new
+  sleep cycle remains pending.
+
 ## 2026-10-22 — persistent one-shot installation
 
 - Enabled Touch ID by default in the one-shot installer at the user's request,

@@ -25,11 +25,11 @@ headers, GCC 15.3.0, Rust 1.97.1, systemd 261. Upstream:
 | Four kernel modules | Compiled directly and through DKMS for 7.3.0-9-generic; DKMS build only, no replacement of normal installed modules |
 | Restricted libfprint test build | 98 passed; 33 hardware emulation cases skipped because those unrelated drivers are excluded |
 | Matched fprintd/PAM tests | All 560 passed on synthetic devices/private test buses; no physical fingerprint claim |
-| Integration policy/lifecycle tests | Full top-level project discovery: 95 passed, including 37 Touch ID tests and 9 one-shot tests |
+| Integration policy/lifecycle tests | Full top-level project discovery: 103 passed, including 37 Touch ID lifecycle tests, 8 display-wake tests and 9 one-shot tests |
 | Private bundle install, verification, uninstall, reinstall | Passed on this host; system fingerprint libraries and PAM unchanged |
 | Pinned source reconstruction | 919 files match an independent reconstruction from verified archives; a repeated network fetch timed out, so the checksum-verified cache was used |
 | Earlier baseline one-shot repeat | `sudo ./install.sh --no-install-deps` returned 0 when Touch ID was still report-only; this does not validate the new complete installation path |
-| Persistent boot configuration | Installed locally after the user's request; generated menu checked, original kernel/initramfs and PAM preserved. First persistent boot not yet observed |
+| Persistent boot configuration | Installed locally after the user's request; generated menu checked, original kernel/initramfs and PAM preserved. Persistent T1 boot observed at 15:40 IST with the saved fingerprint retained |
 | Default one-shot orchestration | Command-plan and failure-path tests pass: target preflight, unprivileged source build, existing bundle reuse, persistent selection, scoped rollback and opt-out |
 | Runtime library isolation | `ldd` resolves the installed private fprintd to the bundled libfprint |
 | Local DEB | Built and inspected; native runtime dependencies computed with dpkg-shlibdeps; not released |
@@ -130,13 +130,36 @@ The normal Ubuntu entry remains available in a five-second menu. Generated boot
 configuration, original kernel/initramfs and PAM hashes were checked; the saved
 fingerprint record was present without reading its biometric content. GDM's
 existing fingerprint policy was enabled and its fingerprint PAM service was
-already installed. Actual GDM login and the next persistent boot remain unobserved.
+already installed. The next persistent T1 boot was observed at 15:40 IST with
+the saved fingerprint retained. Actual GDM fingerprint login remains unconfirmed.
 
 The tracked one-shot path now supports the same activation, fresh source builds,
 and verified reuse of existing installations. Synthetic tests cover an unenrolled
 fresh setup, repeat installation, changed boot files, failed menu generation,
 missing normal fallback and preservation of unrelated pending boot choices.
 No physical fingerprint tests were repeated for this installer change.
+
+### s2idle recovery follow-up
+
+On the persistent boot, a lid-close s2idle cycle from approximately 15:41:34 to
+15:43:39 IST completed normally, but the user reported Touch Bar darkness and
+Touch ID failure. USB stayed in configuration 2 and the display DRM node and
+services remained present. The keybag relay logged a lost connection (`-107`)
+at wake and recovered after one automatic restart. Listing fingerprints still
+showed the enrolled left index record.
+
+A user-renderer restart reconnected successfully. At 15:55 IST the new display
+wake helper read the panel as parked, wrote the documented awake report through
+the dynamically discovered display HID interface, and verified awake readback.
+The user then confirmed both the Touch Bar and Touch ID worked again. No USB
+reset, ACPI command, service-stack replacement or re-enrollment was used.
+
+The same helper is installed as a journaled system-sleep `post suspend` hook for
+future s2idle cycles, and fresh/repeated one-shot installation includes it.
+Eight synthetic tests cover scope, dynamic discovery, idempotence, malformed
+reports, mismatched device nodes, and write/readback failures. Automatic recovery
+through the next real sleep cycle remains pending; a successful readback alone
+does not count as physical visibility or successful fingerprint verification.
 
 | Requirement | Status |
 | --- | --- |
@@ -148,13 +171,13 @@ No physical fingerprint tests were repeated for this installer change.
 | F. GNOME unlock | Existing distro fingerprint service retained; actual unlock not yet tested |
 | G. Password fallback, including unavailable fingerprint service/module | Original PAM preserved; failure-injection acceptance pending |
 | GDM login | Existing distro fingerprint policy enabled; actual login not yet tested |
-| H. Fingerprints persist after reboot | Not tested |
+| H. Fingerprints persist after reboot | Saved left-index record retained on persistent boot; user confirms existing fingerprint works after live display-wake recovery |
 | I. Touch Bar under replacement stack | Visible; services stable after fingerprint tests. User confirms volume and mute work. GNOME OSD fix loaded on normal boot; T1Bridge-boot visual confirmation and other control regression tests pending |
 | J. Camera under replacement UVC driver | Not tested |
 | K. Speakers/headphones/microphone | Baseline previously working; replacement-stack regression pending |
 | L. Wi-Fi | Baseline previously working; trial regression pending |
 | M. Keyboard and trackpad | Baseline previously working; trial regression pending |
-| N. Suspend/resume, including audio recovery | User confirmed baseline on 21 October; new-stack test pending |
+| N. Suspend/resume, including audio recovery | Initial T1 s2idle cycle failed display/fingerprint usability. User confirmed both recovered after the live display-wake fix; automatic post-sleep recovery pending |
 | O. Live-stack uninstall/rollback | Rollback after the failed hardware trial passed; removal after a working Touch ID session remains pending |
 | Fresh one-shot installation | Not tested |
 | Existing-installation upgrade and repeated complete Touch ID installation | Synthetic reuse and failure-path tests pass; complete physical acceptance pending |
