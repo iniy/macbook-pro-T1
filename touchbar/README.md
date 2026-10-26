@@ -46,6 +46,10 @@ enable a screen reader. If GNOME has not discovered the new extension yet, log o
 back in after saving your work. The installer leaves the running Touch Bar alone
 until the extension is available. No reboot or fingerprint re-enrollment is needed.
 
+The optional audio visualizer also uses `gir1.2-gstreamer-1.0`,
+`gstreamer1.0-plugins-good`, and `pulseaudio-utils` (normally installed on this
+desktop). If unavailable, playback controls still work and the visualizer rests.
+
 ```bash
 python3 touchbar/install.py status
 python3 touchbar/bridge.py --check
@@ -70,7 +74,7 @@ MPRIS, its shortcut area becomes a playback strip. Supported application familie
 include Firefox, Chromium/Chrome, Brave, Vivaldi, GNOME Web, VLC, mpv/Celluloid,
 Totem/Showtime, Haruna, SMPlayer and Parole. Other MPRIS players are eligible
 when they advertise a recognizable video file URI. The strip has
-play/pause, backward/forward ten seconds, elapsed/remaining time and a draggable
+play/pause beside the timeline, elapsed/remaining time and a draggable
 timeline. Dragging previews the target time and releasing commits one seek.
 Progress updates do not interrupt a held touch. The strip remains available
 while paused and returns to app shortcuts when the player disappears or stops.
@@ -79,14 +83,34 @@ Only MPRIS players owned by the focused application process are eligible. Comman
 recheck focus, player ownership and track identity; absolute seeks include the
 current track ID. Firefox Snap access uses the existing unconfined user service.
 No browser extension, injected page scripts, debug port or per-site setup is needed.
-The browser selects its active media session, which may contain audio or video;
-MPRIS does not identify the focused tab or supply thumbnail frames. Websites
-that omit duration show an unavailable timeline; playback and relative seeking
-remain available according to the player's advertised capabilities. A player
-that cannot seek gets disabled seek controls.
+Firefox controls also require the media title to match the active tab's window
+caption. A different tab gets the usual browser shortcuts, even while another
+tab keeps playing. Returning to the video restores its cached timing and
+thumbnails. The caption comes from the already discovered active accessibility
+window; browser documents are never scanned. Only a normalized title hash is
+kept in the snapshot, and queued seeks recheck the tab before execution. Sites
+whose media title cannot be matched to the tab retain browser shortcuts.
+Other browsers select their active media session, which may contain audio or video;
+MPRIS itself does not identify the focused tab or supply thumbnail frames. Websites
+that omit duration show an unavailable timeline; play/pause remains available
+according to the player's advertised capabilities. A player that cannot seek
+gets a disabled timeline.
+
+The former ten-second seek buttons are replaced by a noninteractive, sixteen-bar
+audio spectrum, colored from cyan through green and yellow to red. Play/pause
+sits immediately beside the unchanged timeline; this layout stays stable while
+paused. The bars respond to the current output mix
+(including other audible apps), using GStreamer's native FFT on a 16 kHz mono
+sink monitor at 25 updates per second. Audio is neither saved nor sent anywhere,
+and the microphone is never selected. The analyzer closes its stream when video
+controls are hidden, paused, muted, or covered by Fn, volume, or Touch ID controls.
+Existing mixer events follow output-device changes without extra idle polling.
+Silence or an unavailable backend leaves resting bars. Audio-only changes repaint
+just the visualizer; timeline motion and glass-lens behavior keep their existing
+cadence. Missing audio services/plugins retry with backoff without blocking input.
 
 For an already identified video, the adapter retains its known duration if
-Firefox drops that field after seeking. It follows `Seeked` notifications and
+Firefox drops or zeros that field after seeking or a focus change. It follows `Seeked` notifications and
 the playback clock when Firefox incorrectly reports position zero
 ([Mozilla bug 2065930](https://bugzilla.mozilla.org/show_bug.cgi?id=2065930)).
 The cache is limited to the same player and media identity, including a private
@@ -113,7 +137,8 @@ audio/video downloads or changes to browser settings. Only canonical YouTube
 watch pages and their `i.ytimg.com` storyboard images are requested.
 
 A separate worker loads a bounded number of sprite images into a two-video
-memory cache. URLs, titles, video IDs and thumbnail images are not written by
+memory cache. Focus changes cancel unfinished work without marking the video as
+unavailable, so returning can retry immediately. URLs, titles, video IDs and thumbnail images are not written by
 the renderer to disk or diagnostics. Loading, failures, unavailable/private/live
 videos and sites without a storyboard adapter retain the time scrubber. A
 duration mismatch suppresses images, so an ad does not reuse a different video's

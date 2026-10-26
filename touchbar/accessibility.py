@@ -20,6 +20,7 @@ class DialogReader:
         self.targets = {}
         self.dialog = None
         self.negative, self.checked, self.dirty, self.active_bus = None, -10, True, None
+        self.active_window, self.active_focus = None, None
         self.events = ('window:create','window:activate','window:destroy',
                        'object:children-changed','object:state-changed:modal')
         self.listener = Atspi.EventListener.new(self.invalidate)
@@ -59,6 +60,7 @@ class DialogReader:
             return None
         if self.cached_absence(focus):
             return None
+        self.active_window, self.active_focus = None, None
         self.dirty, self.negative = False, None
         api = self.api
         deadline = time.monotonic() + 0.30
@@ -94,6 +96,8 @@ class DialogReader:
                     states = self.states(top)
                     if not states.contains(api.StateType.ACTIVE):
                         continue
+                    self.active_window = top
+                    self.active_focus = tuple(focus.get(k) for k in ('pid', 'window', 'focus'))
                     nodes = list(walk(top))
                     dialogs = [(node, depth) for node, depth, states in nodes
                                if node.get_role() in (api.Role.DIALOG, api.Role.ALERT)
@@ -136,6 +140,19 @@ class DialogReader:
                     'token': token, 'actions': buttons}
         except Exception:
             self.targets, self.dialog = {}, None
+            return None
+
+    def media_title(self, focus):
+        # Reuse the focused top-level window already found by dialog discovery.
+        # One caption read detects tab changes; never traverse browser documents.
+        from media import media_title_key
+        if (self.active_window is None or self.active_focus !=
+                tuple(focus.get(k) for k in ('pid', 'window', 'focus'))):
+            return None
+        try:
+            self.active_window.clear_cache_single()
+            return media_title_key(self.active_window.get_name())
+        except Exception:
             return None
 
     def activate(self, token, ident, focus, guard=lambda: True):

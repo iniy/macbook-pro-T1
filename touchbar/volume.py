@@ -25,7 +25,7 @@ def anchored_layout(x, level):
 
 
 class VolumeWorker:
-    def __init__(self, monitor=True):
+    def __init__(self, monitor=True, on_output_change=None):
         self.condition = threading.Condition()
         self.active = self.visible = self.stopped = self.subscribed = False
         self.commands = deque()
@@ -35,6 +35,7 @@ class VolumeWorker:
         self.thread = None
         self.monitor_enabled, self.monitor_thread, self.subscription = monitor, None, None
         self.stop_event = threading.Event()
+        self.on_output_change = on_output_change
 
     def command(self, *args):
         result = subprocess.run(['/usr/bin/wpctl', *args], timeout=.4,
@@ -122,6 +123,8 @@ class VolumeWorker:
             self.dirty = True
             self.next_read = time.monotonic()+.05
             self.condition.notify()
+        if self.on_output_change:
+            self.on_output_change()
 
     def monitor(self):
         while not self.stop_event.is_set():

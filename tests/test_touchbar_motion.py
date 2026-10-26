@@ -86,6 +86,7 @@ class MotionTests(unittest.TestCase):
         worker = SimpleNamespace(read=lambda: state(video=video(position=30_000_000,
             sampled_at=0)), dispatch=lambda *args: actions.append(args))
         with patch.object(protocol, 'Hardware', Hardware), patch.object(bridge, 'read_overlay', return_value=None), \
+                patch('spectrum.SpectrumWorker.read', return_value=(0,)*16), \
                 patch('volume.VolumeWorker.observe'), \
                 patch.object(bridge.time, 'monotonic', side_effect=lambda: now[0]):
             with self.assertRaises(KeyboardInterrupt):
@@ -110,6 +111,7 @@ class MotionTests(unittest.TestCase):
             def close(self):pass
         worker=SimpleNamespace(read=lambda:state(video=video(length=0,position=0,sampled_at=1000)),dispatch=lambda *args:None)
         with patch.object(protocol,'Hardware',Hardware),patch.object(bridge,'read_overlay',return_value=None), \
+                patch('spectrum.SpectrumWorker.read', return_value=(0,)*16), \
                 patch('volume.VolumeWorker.observe'), \
                 patch.object(bridge.time,'monotonic',side_effect=lambda:now[0]):
             with self.assertRaises(KeyboardInterrupt):bridge.render_session(worker)

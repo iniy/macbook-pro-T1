@@ -12,7 +12,8 @@ import time
 from model import Gesture, Scrub, scene_for
 from motion import FrameBlend, TimelineMotion
 from overlay import read_overlay
-from volume import VolumePanel
+from volume import VolumePanel, VolumeWorker
+from spectrum import SpectrumWorker
 
 
 def hardware_action(hardware, action):
@@ -31,7 +32,7 @@ def hardware_action(hardware, action):
 
 def render_session(worker):
     import cairo
-    from paint import animation_frame, draw, hit_test, seek_fraction, volume_fraction
+    from paint import animation_frame, draw, draw_visualizer, hit_test, seek_fraction, volume_fraction
     from protocol import Hardware
     if os.geteuid() == 0:
         raise RuntimeError('Run the renderer as the desktop user')
@@ -41,7 +42,8 @@ def render_session(worker):
     gesture, fn, page = Gesture(), False, 0
     scrub = Scrub()
     motion, lens = TimelineMotion(), FrameBlend()
-    volume = VolumePanel()
+    spectrum = SpectrumWorker()
+    volume = VolumePanel(VolumeWorker(on_output_change=spectrum.output_changed))
     next_video_frame = 0
     rendered, render_state, boxes, token, context = None, None, [], '', None
     stamp = None
@@ -86,15 +88,21 @@ def render_session(worker):
                            filmstrip.revision if filmstrip else None, lens_frames) if position is not None else None
             volume_frame = ((round(scene.volume['level'], 3), scene.volume['muted'])
                             if scene.kind == 'volume' else bool(scene.volume and scene.volume['muted']))
-            next_render_state = (scene.signature, pressed, frame, video_frame, volume_frame)
+            levels = spectrum.read(scene.context if scene.kind == 'video'
+                                   and scene.playback['status'] == 'Playing'
+                                   and not (scene.volume and scene.volume['muted']) else None)
+            next_render_state = (scene.signature, pressed, frame, video_frame, volume_frame, levels)
             due = not scene.playback or now >= next_video_frame
             if scene.playback and due and not hardware.busy:
                 # Advance even when no pixels changed, avoiding a 1 ms busy loop.
                 next_video_frame = now + 1/60
             if next_render_state != render_state and not hardware.busy and due:
                 visual_fraction = position/scene.playback['length'] if fraction is not None and scene.playback['length'] else None
-                boxes = draw(surface, scene, hardware.width, hardware.height, pressed, frame or 0,
-                             position, visual_fraction, lens_frames)
+                if scene.kind == 'video' and render_state and next_render_state[:-1] == render_state[:-1]:
+                    draw_visualizer(surface, levels, hardware.width, hardware.height)
+                else:
+                    boxes = draw(surface, scene, hardware.width, hardware.height, pressed, frame or 0,
+                                 position, visual_fraction, lens_frames, levels)
                 hardware.submit()
                 rendered = scene.signature
                 token = scene.context if scene.kind == 'video' else state.get('token', '')
@@ -148,6 +156,7 @@ def render_session(worker):
                 else:
                     hardware_action(hardware, action)
     finally:
+        spectrum.close()
         volume.close()
         surface.finish()
         del surface

@@ -10,7 +10,7 @@ import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'touchbar'))
 from gi.repository import Gio, GLib
-from media import MediaClient, PATH, PLAYER, video_token
+from media import MediaClient, PATH, PLAYER, video_token, media_title_key
 
 NAME = 'org.mpris.MediaPlayer2.firefox.touchbar_fixture'
 
@@ -79,7 +79,8 @@ def exercise(browser='firefox'):
                 time.sleep(.02)
             client = MediaClient()
             focus = {'kind': 'desktop', 'app': {'firefox':'firefox.desktop','chrome':'google-chrome.desktop',
-                      'vlc':'vlc.desktop'}[browser], 'pid': process.pid}
+                      'vlc':'vlc.desktop'}[browser], 'pid': process.pid,
+                      'media_title': media_title_key('Fixture video - YouTube — Mozilla Firefox')}
             video = client.read(focus)
             assert video and video['length'] == 120_000_000 and video['position'] == 30_000_000
             assert video['browser'] == ('player' if browser == 'vlc' else browser)
@@ -101,6 +102,13 @@ def exercise(browser='firefox'):
             client.call(video['owner'], PATH, PLAYER, 'Seek', '(x)', (-10_000_000,))
             external = client.read(focus)
             assert 20_000_000 <= external['position'] < 21_000_000, external['position']
+            if browser == 'firefox':
+                # The media session continues in a background tab. Returning
+                # restores its known duration even though MPRIS still omits it.
+                assert client.read({**focus, 'media_title': media_title_key('New Tab — Mozilla Firefox')}) is None
+                restored = client.read(focus)
+                assert restored['length'] == 120_000_000 and restored['position'] >= external['position']
+                assert not client.read({**focus, 'media_title': None})
             assert not client.activate('video:forward', video, lambda: False)
             assert client.read({**focus, 'pid': process.pid + 1}) is None
             assert client.read({**focus, 'app': 'org.gnome.Nautilus.desktop'}) is None
@@ -108,6 +116,7 @@ def exercise(browser='firefox'):
                 ['Pause', []], ['Play', []], ['SetPosition', ['/track/one', 90_000_000]],
                 ['SetPosition', ['/track/one', 30_000_000]], ['Seek', [-10_000_000]]]
             client.call(video['owner'], PATH, PLAYER, 'ChangeTrack')
+            focus['media_title'] = media_title_key('Different fixture video - YouTube — Mozilla Firefox')
             changed = client.read(focus)
             assert changed['track'] == video['track'] and changed['identity'] != video['identity']
             assert changed['length'] == 0 and changed['position'] == 0

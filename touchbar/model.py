@@ -69,10 +69,8 @@ def scene_for(state, overlay=None, fn=False, features=0x27, page=0):
         video = state['video']
         playing = video['status'] == 'Playing'
         buttons = (Button('esc', 'key:1'),
-                   Button('Back 10 seconds', 'video:backward', video['can_seek'], icon='rewind'),
                    Button('Pause' if playing else 'Play', 'video:toggle',
                           video['can_pause' if playing else 'can_play'], icon='pause' if playing else 'play'),
-                   Button('Forward 10 seconds', 'video:forward', video['can_seek'], icon='fast-forward'),
                    Button('Seek', 'video:seek', video['can_seek'] and video['length'] > 0), *controls)
         return Scene('', buttons, video_token(state), 'video', playback=video)
     buttons = [] if dialog else [Button('esc', 'key:1')]
@@ -96,6 +94,8 @@ def scene_for(state, overlay=None, fn=False, features=0x27, page=0):
     if not dialog:
         buttons += controls
     context = state.get('token', 'unavailable') + f':{page}'
+    if state.get('media_title'):
+        context += ':tab:' + state['media_title']
     title = state.get('title', 'Touch Bar') if actions or kind not in ('desktop', 'controls') else ''
     return Scene(title, tuple(buttons), context, kind)
 

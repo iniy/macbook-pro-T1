@@ -8,7 +8,7 @@ from unittest.mock import Mock, patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'touchbar'))
-from media import MediaClient, PLAYER, PATH, position_at, video_token
+from media import MediaClient, PLAYER, PATH, position_at, video_token, media_title_key
 from model import Scrub, scene_for
 
 
@@ -46,7 +46,7 @@ class PlaybackTests(unittest.TestCase):
             for width, height in ((2170, 60), (1085, 30)):
                 boxes = regions(scene, width, height)
                 self.assertIsNone(hit_test(boxes, width/2, height/2))
-                self.assertEqual(hit_test(boxes, width*370/2170, height/2), 'video:toggle')
+                self.assertEqual(hit_test(boxes, width*490/2170, height/2), 'video:toggle')
 
     def test_seek_clamps_to_the_track_and_revalidates_track_and_focus(self):
         client = MediaClient.__new__(MediaClient)
@@ -158,6 +158,106 @@ class FirefoxClockTests(unittest.TestCase):
         self.props['Position'] = 0
         self.assertEqual(self.read(2, firefox=False)['position'], 0)
 
+    def test_switching_apps_and_tabs_restores_seeker_despite_zero_duration(self):
+        client = self.client
+        client.pid, client.scanned, client.candidates, client.selected = None, -10, [], None
+        def call(owner, path, interface, method, *args):
+            return {'ListNames': (['org.mpris.MediaPlayer2.firefox.fixture'],),
+                    'GetNameOwner': (':1.42',), 'GetConnectionUnixProcessID': (42,),
+                    'GetAll': (self.props,)}[method]
+        client.call.side_effect = call
+        focus = {'kind': 'desktop', 'pid': 42, 'app': 'firefox.desktop', 'token': 'first',
+                 'media_title': media_title_key('Fixture - YouTube — Mozilla Firefox')}
+        first = client.read(focus)
+        self.assertEqual(first['length'], 120_000_000)
+        self.now += 5
+        self.assertIsNone(client.read({**focus, 'pid': 99, 'app': 'org.gnome.Nautilus.desktop'}))
+        self.props['Metadata']['mpris:length'] = 0
+        self.now += 5
+        restored = client.read({**focus, 'token': 'returned'})
+        self.assertEqual(restored['length'], 120_000_000)
+        self.assertEqual(restored['position'], 10_000_000)
+        self.assertTrue(next(b for b in scene_for(state(video=restored)).buttons
+                             if b.action == 'video:seek').enabled)
+        self.assertIsNone(client.read({**focus, 'media_title': media_title_key('New Tab — Mozilla Firefox')}))
+        self.assertIsNone(client.read({**focus, 'media_title': None}))
+        self.now += 5
+        again = client.read(focus)
+        self.assertEqual(again['length'], 120_000_000)
+        self.assertEqual(again['position'], 15_000_000)
+        self.props['Metadata']['xesam:title'] = 'Different fixture'
+        changed = client.read({**focus, 'media_title': media_title_key('Different fixture')})
+        self.assertEqual(changed['length'], 0)
+        self.assertEqual(changed['position'], 0)
+
+
+class FocusedTitleTests(unittest.TestCase):
+    def test_title_matching_is_exact_after_browser_and_site_suffixes(self):
+        title = 'The Fixture Video'
+        for caption in (title, title+' - YouTube — Mozilla Firefox',
+                        '  THE   FIXTURE VIDEO - Vimeo — Firefox',
+                        title+' - YouTube — Mozilla Firefox (Private Browsing)'):
+            self.assertEqual(media_title_key(title), media_title_key(caption))
+        for caption in ('New Tab — Mozilla Firefox', 'The Fixture Video Two - YouTube', '', None):
+            self.assertNotEqual(media_title_key(title), media_title_key(caption))
+
+    def test_active_window_caption_reuses_existing_node_and_refreshes_on_tab_change(self):
+        from accessibility import DialogReader
+        reader = DialogReader.__new__(DialogReader)
+        reader.active_window = Mock()
+        reader.active_focus = (42, 'window', 1)
+        focus = {'pid': 42, 'window': 'window', 'focus': 1}
+        reader.active_window.get_name.return_value = 'Fixture - YouTube — Mozilla Firefox'
+        self.assertEqual(reader.media_title(focus), media_title_key('Fixture'))
+        reader.active_window.get_name.return_value = 'New Tab — Mozilla Firefox'
+        self.assertEqual(reader.media_title(focus), media_title_key('New Tab'))
+        self.assertEqual(reader.active_window.clear_cache_single.call_count, 2)
+        self.assertIsNone(reader.media_title({**focus, 'focus': 2}))
+        reader.active_window.get_name.side_effect = RuntimeError('Defunct window')
+        self.assertIsNone(reader.media_title(focus))
+
+    def test_tab_change_cancels_held_browser_action(self):
+        from model import Gesture
+        base = state(video=None, media_title=media_title_key('First tab'),
+                     actions=[{'id': 'shortcut-0', 'label': 'Back'}])
+        first, second = scene_for(base), scene_for({**base, 'media_title': media_title_key('New Tab')})
+        gesture = Gesture()
+        gesture.update_scene(first.signature, 0)
+        gesture.input([(0, 500, 30)], lambda *_: 'context:shortcut-0', 1)
+        gesture.update_scene(second.signature, 1.1)
+        self.assertIsNone(gesture.input([], lambda *_: 'context:shortcut-0', 1.2))
+
+    def test_queued_seek_is_rejected_if_tab_changes_before_execution(self):
+        import queue
+        import threading
+        from desktop import DesktopWorker
+        worker = DesktopWorker.__new__(DesktopWorker)
+        worker.queue, worker.lock, worker.stop = queue.Queue(), threading.Lock(), threading.Event()
+        worker.snapshot, worker.updated = {}, 0
+        key = media_title_key('Fixture')
+        focus = {'kind': 'desktop', 'app': 'firefox.desktop', 'pid': 42,
+                 'token': 'fixture', 'window': 'window', 'focus': 1}
+        sample = video()
+        worker.queue.put(('video:seek:0.5', video_token({**focus, 'media_title': key, 'video': sample})))
+        shell, reader, media, thumbnails = Mock(), Mock(), Mock(), Mock()
+        shell.state.return_value, shell.display_on.return_value = focus, True
+        reader.scan.return_value = None
+        reader.media_title.side_effect = [key, media_title_key('New Tab')]
+        media.read.return_value = sample
+        accepted = []
+        def activate(action, expected, guard):
+            accepted.append(guard())
+            worker.stop.set()
+        media.activate.side_effect = activate
+        thumbnails.read.return_value = None
+        with patch('desktop.ShellClient', return_value=shell), \
+                patch('accessibility.DialogReader', return_value=reader), \
+                patch('media.MediaClient', return_value=media), \
+                patch('thumbnails.ThumbnailWorker', return_value=thumbnails):
+            worker.run()
+        self.assertEqual(accepted, [False])
+        shell.activate.assert_not_called()
+
 
 class ScrubTests(unittest.TestCase):
     def setUp(self):
@@ -223,6 +323,7 @@ class ScrubTests(unittest.TestCase):
             position=30_000_000 + int(now[0]*1_000_000), sampled_at=now[0])),
             dispatch=lambda action, token: actions.append((action, token)))
         with patch.object(protocol, 'Hardware', Hardware), patch.object(bridge, 'read_overlay', return_value=None), \
+                patch('spectrum.SpectrumWorker.read', return_value=(0,)*16), \
                 patch('volume.VolumeWorker.observe'), \
                 patch.object(bridge.time, 'monotonic', side_effect=lambda: now[0]):
             with self.assertRaises(KeyboardInterrupt):

@@ -5,18 +5,35 @@ import json
 import math
 import re
 import time
+import unicodedata
 from thumbnails import youtube_id
 
 BROWSERS = re.compile(r'firefox|chromium|google-chrome|brave|vivaldi|epiphany|falkon|opera', re.I)
+FIREFOX = re.compile(r'firefox', re.I)
 VIDEO_PLAYERS = re.compile(r'vlc|mpv|celluloid|totem|showtime|haruna|smplayer|parole|dragonplayer|kodi', re.I)
 PLAYER = 'org.mpris.MediaPlayer2.Player'
 PATH = '/org/mpris/MediaPlayer2'
 NO_TRACK = '/org/mpris/MediaPlayer2/TrackList/NoTrack'
 
 
+def media_title_key(title):
+    """Compare media and active-window captions without retaining their text."""
+    if not isinstance(title, str) or not title.strip() or len(title) > 8192:
+        return None
+    title = ' '.join(unicodedata.normalize('NFKC', title).split())
+    title = re.sub(r'\s+[—–-]\s+(?:Mozilla\s+)?Firefox(?:\s+\(Private Browsing\))?$', '', title, flags=re.I)
+    title = re.sub(r'\s+[—–-]\s+(?:YouTube|Vimeo|Dailymotion|Twitch)$', '', title, flags=re.I)
+    return hashlib.sha256(title.casefold().encode()).hexdigest() if title else None
+
+
+def matches_focused_tab(focus, video):
+    return (not FIREFOX.search(focus.get('app', '')) or
+            bool(video.get('title_hash') and video['title_hash'] == focus.get('media_title')))
+
+
 def video_token(state):
     video = state['video']
-    identity = [state.get('token'), video['owner'], video['track'], video.get('identity')]
+    identity = [state.get('token'), state.get('media_title'), video['owner'], video['track'], video.get('identity')]
     return 'video:' + hashlib.sha256(json.dumps(identity).encode()).hexdigest()
 
 
@@ -105,7 +122,7 @@ class MediaClient:
             return None
         if type(length) is not int or not 0 < length < 2**63:
             length = 0
-        if 'mpris:length' not in metadata and previous:
+        if previous and ('mpris:length' not in metadata or firefox and length == 0):
             length = previous['length']
         if type(rate) not in (int, float) or not math.isfinite(rate) or not 0 < rate <= 16:
             rate = 1.0
@@ -124,8 +141,7 @@ class MediaClient:
             position = position_at(previous, now)
         result = {'owner': owner, 'track': track, 'identity': identity, 'status': props['PlaybackStatus'],
                 'thumbnail_source': youtube_id(metadata.get('xesam:url', '')) or (previous or {}).get('thumbnail_source'),
-                'title_hash': hashlib.sha256(metadata['xesam:title'].encode()).hexdigest()
-                    if isinstance(metadata.get('xesam:title'), str) and metadata['xesam:title'] else None,
+                'title_hash': media_title_key(metadata.get('xesam:title')),
                 'position': position, 'length': length, 'rate': rate,
                 'sampled_at': now, 'can_seek': props.get('CanSeek') is True,
                 'can_play': props.get('CanPlay') is True, 'can_pause': props.get('CanPause') is True}
@@ -170,7 +186,8 @@ class MediaClient:
                     video = self.properties(owner, firefox=bool(re.search('firefox', focus.get('app', ''), re.I)))
                     if video and (BROWSERS.search(focus.get('app','')) or
                                   VIDEO_PLAYERS.search(focus.get('app','')) or video['video_hint']):
-                        videos.append(video)
+                        if matches_focused_tab(focus, video):
+                            videos.append(video)
                 except Exception:
                     continue
             if not videos:

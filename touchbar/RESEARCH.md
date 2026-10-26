@@ -194,6 +194,19 @@ The identity also includes a hash of stable media metadata, because Firefox can
 reuse its MPRIS track object path across videos. No media titles or URLs are
 written to disk or diagnostics.
 
+Firefox MPRIS describes the browser's selected media session, which can continue
+playing in a background tab. To avoid showing those controls over another tab,
+the adapter compares its media title with the active window caption, normalizing
+browser branding and supported site suffixes. The caption is read from the
+active top-level accessibility object already discovered by the dialog reader;
+this adds no document traversal, browser helper, screen capture or debug port.
+Only a title hash enters the desktop snapshot. A mismatch returns the existing
+browser shortcuts, and command dispatch checks the title again. Focus changes
+preserve same-video timing and cached storyboards. A zero duration from Firefox
+also retains known same-video duration; a different media identity still clears
+it. Cancelling storyboard loading because focus changed does not trigger the
+failure cooldown if the user immediately returns.
+
 YouTube thumbnail support uses the public player's storyboard data. The adapter
 validates the video ID, chooses a small sprite format, and samples twelve frames
 across the video's duration. The storyboard specification and sprite layout are
@@ -222,6 +235,32 @@ skips passive progress redraws below quarter-pixel steps, and advances its frame
 deadline even when duration is unavailable. Touch dragging and lens dissolves
 retain the existing presentation clock and 60 Hz scheduling. A Rust rewrite is
 not required to remove these avoidable operations.
+
+The audio visualizer uses GStreamer's existing native
+[spectrum analyzer](https://gstreamer.freedesktop.org/documentation/spectrum/index.html)
+and [PulseAudio source](https://gstreamer.freedesktop.org/documentation/pulseaudio/pulsesrc.html).
+It analyzes the explicitly selected output monitor at 16 kHz mono, groups 64 FFT
+bins into sixteen display bars, and publishes levels every 40 ms. Python handles
+only these small level arrays and Cairo drawing; FFT/audio conversion remain in
+native libraries. An output-monitor stream is not a direct video-hardware path.
+The pipeline has no audio playback sink and cannot feed sound back into playback.
+It is destroyed when hidden, paused, muted, or superseded by another panel, and
+the existing mixer subscription signals output changes. No additional idle
+device polling or audio persistence is introduced. Output selection is explicit,
+with PipeWire's `stream.capture.sink` and `node.dont-fallback` properties so an
+unavailable output cannot select the microphone. Failed optional audio support
+leaves playback controls usable and retries after ten seconds or a context/device
+change. Cosmetic bar updates do not change gesture identity, and frames with only
+new audio levels repaint the small visualizer rectangle.
+
+On this MacBook, a twelve-second warm monitor run delivered 300 spectrum updates
+and used 1.94% of one CPU core in the analyzer process. A 300-frame Cairo sample
+measured 0.22 ms per spectrum-only repaint versus 2.47 ms per full filmstrip frame.
+These are component measurements, not total desktop/video CPU or battery-life
+figures. Lifecycle tests verify that hidden capture closes and waits without
+device polling. The user confirmed the live bars and adjacent play/pause feel;
+the subsequently requested colors use a fixed precomputed cyan-to-red palette,
+with the same geometry, envelope and update cadence.
 
 The volume popover follows the compact capsule, blue track, broad white thumb,
 and circular dismiss control illustrated in Apple's [MacBook Pro Essentials](https://support.apple.com/en-hk/guide/macbook-pro/apd2ef3d66b2/2023/mac/14).

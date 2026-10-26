@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'touchbar'))
-from thumbnails import CELLS, Filmstrip, ThumbnailWorker, load_filmstrip, parse_storyboard, youtube_id, tile_bounds
+from thumbnails import CELLS, Filmstrip, ThumbnailCancelled, ThumbnailWorker, load_filmstrip, parse_storyboard, youtube_id, tile_bounds
 
 SOURCE, OTHER = 'abcdefghijk', '0123456789_'
 
@@ -88,6 +88,45 @@ class StoryboardTests(unittest.TestCase):
 
 
 class ThumbnailWorkerTests(unittest.TestCase):
+    def test_return_during_cancellation_does_not_blacklist_the_video(self):
+        started, cancelling, release = threading.Event(), threading.Event(), threading.Event()
+        ready, attempts = strip(), []
+        def loader(source, cancelled):
+            attempts.append(source)
+            if len(attempts) == 1:
+                started.set()
+                deadline = time.monotonic()+2
+                while not cancelled() and time.monotonic() < deadline:
+                    time.sleep(.005)
+                cancelling.set()
+                release.wait(2)
+                raise ThumbnailCancelled()
+            return ready
+        worker = ThumbnailWorker(loader)
+        video = {'thumbnail_source': SOURCE, 'length': 100_000_000, 'can_seek': True}
+        try:
+            self.assertIsNone(worker.read(video))
+            self.assertTrue(started.wait(1))
+            self.assertIsNone(worker.read({'length': 0, 'can_seek': False}))
+            self.assertTrue(cancelling.wait(1))
+            # Return before the cancelled request reports its exception.
+            self.assertIsNone(worker.read(video))
+            release.set()
+            deadline = time.monotonic()+2
+            result = worker.read(video)
+            while result is None and time.monotonic() < deadline:
+                time.sleep(.01)
+                result = worker.read(video)
+            self.assertIs(result, ready)
+            self.assertNotIn(SOURCE, worker.failed)
+            self.assertIsNone(worker.read({'length': 0, 'can_seek': False}))
+            self.assertIs(worker.read(video), ready)
+            self.assertEqual(attempts, [SOURCE, SOURCE])
+        finally:
+            release.set()
+            worker.close()
+            worker.thread.join(2)
+
     def test_slow_or_superseded_download_does_not_block_or_show_the_wrong_video(self):
         started, release = threading.Event(), threading.Event()
         ready = strip(OTHER)
@@ -182,6 +221,7 @@ class FilmstripRendererTests(unittest.TestCase):
                 sample['filmstrip'] = art
             return state(video=sample)
         with patch.object(protocol, 'Hardware', Hardware), patch.object(bridge, 'read_overlay', return_value=None), \
+                patch('volume.VolumeWorker.observe'), \
                 patch.object(bridge.time, 'monotonic', side_effect=lambda: now[0]):
             with self.assertRaises(KeyboardInterrupt):
                 bridge.render_session(SimpleNamespace(read=snapshot))

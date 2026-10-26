@@ -90,7 +90,7 @@ class DesktopWorker:
 
     def run(self):
         from accessibility import DialogReader
-        from media import MediaClient, video_token
+        from media import FIREFOX, MediaClient, video_token
         from thumbnails import ThumbnailWorker
         client, reader = ShellClient(), DialogReader()
         media = MediaClient()
@@ -101,6 +101,8 @@ class DesktopWorker:
             try:
                 focus = client.state()
                 snapshot = reader.scan(focus) or focus
+                if snapshot.get('kind') == 'desktop' and FIREFOX.search(snapshot.get('app', '')):
+                    snapshot = {**snapshot, 'media_title': reader.media_title(focus)}
                 snapshot['display'] = client.display_on()
                 video = media.read(snapshot)
                 if video:
@@ -131,13 +133,18 @@ class DesktopWorker:
                             return (latest.get('kind') == 'desktop' and client.display_on()
                                 and all(latest.get(key) == snapshot.get(key)
                                         for key in ('token', 'app', 'pid', 'window', 'focus'))
-                                and reader.scan(latest) is None)
+                                and reader.scan(latest) is None
+                                and (not FIREFOX.search(latest.get('app', '')) or
+                                     reader.media_title(latest) == snapshot.get('media_title')))
                         media.activate(action, snapshot['video'], still_playing_in_focus)
                 elif action and action.startswith('context:') and token != consumed:
                     ident = action.removeprefix('context:')
                     if snapshot.get('token') == token and snapshot.get('display', True):
                         consumed = token
                         current = client.state()
+                        if (FIREFOX.search(snapshot.get('app', '')) and
+                                reader.media_title(current) != snapshot.get('media_title')):
+                            raise ValueError('Browser tab changed')
                         if token.startswith('atspi:'):
                             def still_focused():
                                 latest = client.state()

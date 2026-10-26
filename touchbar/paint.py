@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 """Retina-sized control glyphs and consistent rounded, single-row keys."""
 import cairo
+import colorsys
 import math
 import io
 from functools import lru_cache
@@ -24,6 +25,7 @@ PLATE = (53/255,) * 3
 PRESSED = (76/255,) * 3
 ACCENT = (0, 122/255, 1)
 FOREGROUND = (242/255,) * 3
+SPECTRUM_COLORS = tuple(colorsys.hsv_to_rgb(.52 * (1-i/15), .78, 1) for i in range(16))
 
 # Native geometry from the original T1Bridge face. Esc and audio retain their
 # familiar positions when application actions occupy the middle section.
@@ -59,8 +61,7 @@ def regions(scene, width, height):
                  'volume:close': (scene.volume['close_left'], 80)}
         return [box(*slots[b.action], b) for b in scene.buttons]
     if scene.kind == 'video':
-        slots = {'video:backward': (194, 112), 'video:toggle': (314, 112),
-                 'video:forward': (434, 112), 'video:seek': (574, 998)}
+        slots = {'video:toggle': (434, 112), 'video:seek': (574, 998)}
         return [box(*(slots[b.action] if b.action in slots else STOCK[b.action]), b)
                 for b in scene.buttons]
     if scene.kind == 'function':
@@ -325,7 +326,27 @@ def fingerprint_guidance(ctx, scene, width, height, frame):
     ctx.restore()
 
 
-def draw(surface, scene, width, height, pressed=None, frame=4, position=None, scrub_fraction=None, lens_frames=None):
+def draw_visualizer(surface, levels, width, height):
+    """Repaint only the noninteractive spectrum area on audio-only updates."""
+    ctx = cairo.Context(surface)
+    # Clear the plate's antialiased corners before repainting, so repeated
+    # partial frames match a fresh full frame even at fractional panel scales.
+    left, right = math.floor(194*width/2170), math.ceil(426*width/2170)
+    ctx.set_source_rgb(0, 0, 0)
+    ctx.rectangle(left, 0, right-left, height)
+    ctx.fill()
+    ctx.scale(width/2170, height/60)
+    ctx.set_source_rgb(*PLATE)
+    rounded(ctx, 194, 0, 232, 60, 8)
+    for i in range(16):
+        level = levels[i] if len(levels) == 16 else 0
+        h = 2 + max(0, min(40, level))
+        ctx.set_source_rgb(*(SPECTRUM_COLORS[i] if level else (.43,) * 3))
+        rounded(ctx, 207+i*13, (60-h)/2, 10, h, 3)
+    surface.flush()
+
+
+def draw(surface, scene, width, height, pressed=None, frame=4, position=None, scrub_fraction=None, lens_frames=None, spectrum=()):
     ctx = cairo.Context(surface)
     ctx.set_source_rgb(0, 0, 0)
     ctx.paint()
@@ -361,5 +382,7 @@ def draw(surface, scene, width, height, pressed=None, frame=4, position=None, sc
         ctx.set_source_rgb(*ACCENT)
         ctx.rectangle(0, height - 3, width * scene.progress / 100, 3)
         ctx.fill()
+    if scene.kind == 'video':
+        draw_visualizer(surface, spectrum, width, height)
     surface.flush()
     return boxes

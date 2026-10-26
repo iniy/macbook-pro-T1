@@ -15,6 +15,10 @@ WIDTH, HEIGHT, CELLS, GAP = 800, 42, 12, 8
 PREVIEW_WIDTH, PREVIEW_HEIGHT, PREVIEW_COLUMNS, MAX_PREVIEWS = 74, 52, 20, 240
 
 
+class ThumbnailCancelled(TimeoutError):
+    """A focus change cancelled work; the source remains eligible on return."""
+
+
 def tile_bounds(index):
     return round(index*WIDTH/CELLS) + GAP//2, round((index+1)*WIDTH/CELLS) - GAP//2
 
@@ -149,8 +153,10 @@ def load_filmstrip(source, fetch=download, cancelled=lambda: False):
     strip = Image.new('RGB', (WIDTH, HEIGHT), (53, 53, 53))
     sheets = {}
     for cell in range(CELLS):
-        if cancelled() or time.monotonic() > deadline:
-            raise TimeoutError('Storyboard request superseded or expired')
+        if cancelled():
+            raise ThumbnailCancelled('Storyboard request superseded')
+        if time.monotonic() > deadline:
+            raise TimeoutError('Storyboard request expired')
         index = board.index((cell+.5)/CELLS)
         sheet_index, offset = divmod(index, board.columns*board.rows)
         if sheet_index not in sheets:
@@ -178,8 +184,10 @@ def load_filmstrip(source, fetch=download, cancelled=lambda: False):
     indices = sorted({round(i*last/max(1, count-1)) for i in range(count)})
     previews, positions = [], []
     for index in indices:
-        if cancelled() or time.monotonic() > deadline:
-            raise TimeoutError('Storyboard request superseded or expired')
+        if cancelled():
+            raise ThumbnailCancelled('Storyboard request superseded')
+        if time.monotonic() > deadline:
+            raise TimeoutError('Storyboard request expired')
         sheet_index, offset = divmod(index, board.columns*board.rows)
         sheet = sheets.get(sheet_index)
         if sheet is None:
@@ -249,6 +257,8 @@ class ThumbnailWorker:
                     self.cache[source] = result
                     while len(self.cache) > 2:
                         del self.cache[next(iter(self.cache))]
+            except ThumbnailCancelled:
+                pass
             except Exception:
                 # A private/unavailable video gets the existing time scrubber.
                 # Never log page URLs, IDs, titles, signed image URLs or pixels.
