@@ -26,6 +26,13 @@ See [implementation](TOUCHID-IMPLEMENTATION.md), [test evidence](TOUCHID-TEST-RE
 and [recovery](TOUCHID-RECOVERY.md). Use `--no-touchid` to skip this component.
 The optional `--touchid-trial` keeps the earlier one-boot evaluation mode.
 
+An optional [GNOME-aware Touch Bar bridge](touchbar/README.md) adds system
+confirmation buttons, notification actions, accessible application dialogs and
+app-specific shortcuts on GNOME 51. Its [research report](touchbar/RESEARCH.md)
+explains the integration and the limits of macOS parity. It is installed
+separately while physical acceptance is incomplete; the hardware installer
+continues using the existing renderer by default.
+
 ## One-shot installation
 
 From a local checkout:

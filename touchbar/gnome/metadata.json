@@ -1,0 +1,7 @@
+{
+  "uuid": "t1-gnome-bridge@local",
+  "name": "T1 Touch Bar GNOME Bridge",
+  "description": "Mirror GNOME confirmations, notification actions and focused application controls onto a T1Bridge Touch Bar.",
+  "shell-version": ["51"],
+  "version": 1
+}

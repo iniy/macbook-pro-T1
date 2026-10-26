@@ -17,7 +17,7 @@ FILES += ['THIRD_PARTY_NOTICES.md', 'TOUCHID-UPSTREAM-ATTRIBUTION.md',
 FILES += ['install-audio.sh', 'verify-audio.sh', 'uninstall-audio.sh',
           'install-camera.sh', 'verify-camera.sh', 'uninstall-camera.sh',
           'install-wifi.sh', 'verify-wifi.sh', 'uninstall-wifi.sh']
-DIRS = ['driver', 'patches', 'lib', 'config', 'tests', 'audio', 'camera', 'wifi', 'desktop', 'sleep', 'touchid']
+DIRS = ['driver', 'patches', 'lib', 'config', 'tests', 'audio', 'camera', 'wifi', 'desktop', 'sleep', 'touchid', 'touchbar']
 TOOLS = ['tools/package.py', 'tools/capture-macos.py', 'tools/validate-linux.sh',
          'tools/test-macos.py', 'tools/prepare-vm.py', 'tools/run-vm.sh',
          'tools/vm-ssh.sh', 'tools/qemu-launch.c', 'tools/hypervisor.entitlements']

@@ -20,6 +20,11 @@ that every item is original to this project. It covers Cupertino Icons, Myna UI,
 Inter and the named recovery-parser dependencies. Consult it for copyright holders
 and MIT/SIL OFL terms. Do not strip notices from generated renderer assets.
 
+The optional GNOME Touch Bar bridge also distributes Inter 4.1 Regular/Medium
+font files and the existing renderer's Cupertino/Myna UI control masks under
+their original licenses. See `touchbar/assets/README.md`, the bundled SIL OFL
+license and the complete upstream notices alongside those assets.
+
 Compiled bundles remain local evaluation artifacts. Any later binary publication
 must include complete corresponding GPL/LGPL source and build instructions. No
 private calibration, EFI, keybag or biometric data may be added to a source or
