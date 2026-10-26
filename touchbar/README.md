@@ -68,6 +68,9 @@ Inter Regular/Medium 4.1 is bundled and loaded only inside the renderer. Labels
 use absolute panel pixels so desktop DPI or theme changes cannot resize them.
 App controls share the same single-row styling, with Esc and volume staying in
 their usual positions. Holding Fn temporarily displays the function keys.
+Browser and Files (Nautilus) shortcuts use monochrome icons for navigation,
+reload, new tab, search, address, and new folder. An ellipsis opens the next
+page of browser controls. Their shortcuts, order, and touch targets are unchanged.
 
 Active Touch ID guidance sits at the right edge beside the sensor, with an arrow
 pointing toward it and the original renderer's 150 ms fade-in. The existing

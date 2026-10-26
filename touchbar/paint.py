@@ -161,7 +161,7 @@ def draw(surface, scene, width, height, pressed=None, frame=4):
         fill = ((.18, .57, 1) if held else ACCENT) if primary and button.enabled else PRESSED if held else PLATE
         ctx.set_source_rgb(*fill)
         rounded(ctx, x, y, w, h, 8*sy)
-        if icons.draw(ctx, button.action, x, y, w, h, button.enabled):
+        if icons.draw(ctx, button.action, x, y, w, h, button.enabled, button.icon):
             continue
         color = FOREGROUND if button.enabled else (.43,) * 3
         text(ctx, button.label, x+12, y, w-24, h, 26*sy, color)

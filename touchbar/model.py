@@ -3,6 +3,25 @@
 from dataclasses import dataclass
 import hashlib
 import json
+import re
+
+
+ICON_PROFILE_APPS = re.compile(r'firefox|chromium|google-chrome|brave|org\.gnome\.Nautilus', re.I)
+PROFILE_ICONS = {'Back': 'back', 'Forward': 'forward', 'Reload': 'reload',
+                 'New tab': 'new-tab', 'Find': 'search', 'Search': 'search',
+                 'Address': 'address', 'New folder': 'new-folder'}
+
+
+def icon_profile(state):
+    # Only decorate the existing fixed browser/Files shortcuts. Dialog and
+    # notification labels belong to their applications and must stay textual.
+    return state.get('kind') == 'desktop' and ICON_PROFILE_APPS.search(state.get('app', '')) is not None
+
+
+def profile_icon(state, action):
+    if icon_profile(state) and re.fullmatch(r'shortcut-\d+', action['id']):
+        return PROFILE_ICONS.get(action['label'], '')
+    return ''
 
 
 @dataclass(frozen=True)
@@ -11,6 +30,7 @@ class Button:
     action: str
     enabled: bool = True
     suggested: bool = False
+    icon: str = ''
 
 
 @dataclass(frozen=True)
@@ -48,9 +68,11 @@ def scene_for(state, overlay=None, fn=False, features=0x27, page=0):
         pages = (len(actions) + 4) // 5
         page %= pages
         buttons += [Button(a['label'], 'context:' + a['id'], a.get('enabled', True),
-                           a.get('suggested', False)) for a in actions[page*5:page*5+5]]
+                           a.get('suggested', False), profile_icon(state, a))
+                    for a in actions[page*5:page*5+5]]
         if pages > 1:
-            buttons.append(Button(f'{page+1}/{pages} ›', 'page:next'))
+            buttons.append(Button(f'{page+1}/{pages} ›', 'page:next',
+                                  icon='more' if icon_profile(state) else ''))
     elif not dialog and state.get('kind') not in ('blocked', 'locked'):
         if features & 8:
             buttons += [Button('Light −', 'light:down'), Button('Light +', 'light:up')]
