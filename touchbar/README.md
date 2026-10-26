@@ -87,8 +87,10 @@ Firefox controls also require the media title to match the active tab's window
 caption. A different tab gets the usual browser shortcuts, even while another
 tab keeps playing. Returning to the video restores its cached timing and
 thumbnails. The caption comes from the already discovered active accessibility
-window; browser documents are never scanned. Only a normalized title hash is
-kept in the snapshot, and queued seeks recheck the tab before execution. Sites
+window; browser documents are never scanned. Only normalized title hashes are
+kept in the snapshot, and queued seeks recheck the tab before execution. YouTube's
+leading notification count, such as `(1)`, may be omitted when matching the
+window caption; the exact title remains eligible too. Sites
 whose media title cannot be matched to the tab retain browser shortcuts.
 Other browsers select their active media session, which may contain audio or video;
 MPRIS itself does not identify the focused tab or supply thumbnail frames. Websites

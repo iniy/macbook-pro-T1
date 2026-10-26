@@ -14,6 +14,7 @@ VIDEO_PLAYERS = re.compile(r'vlc|mpv|celluloid|totem|showtime|haruna|smplayer|pa
 PLAYER = 'org.mpris.MediaPlayer2.Player'
 PATH = '/org/mpris/MediaPlayer2'
 NO_TRACK = '/org/mpris/MediaPlayer2/TrackList/NoTrack'
+FIREFOX_SUFFIX = re.compile(r'\s+[—–-]\s+(?:Mozilla\s+)?Firefox(?:\s+\(Private Browsing\))?$', re.I)
 
 
 def media_title_key(title):
@@ -21,14 +22,33 @@ def media_title_key(title):
     if not isinstance(title, str) or not title.strip() or len(title) > 8192:
         return None
     title = ' '.join(unicodedata.normalize('NFKC', title).split())
-    title = re.sub(r'\s+[—–-]\s+(?:Mozilla\s+)?Firefox(?:\s+\(Private Browsing\))?$', '', title, flags=re.I)
+    title = FIREFOX_SUFFIX.sub('', title)
     title = re.sub(r'\s+[—–-]\s+(?:YouTube|Vimeo|Dailymotion|Twitch)$', '', title, flags=re.I)
     return hashlib.sha256(title.casefold().encode()).hexdigest() if title else None
 
 
+def window_media_title_keys(caption):
+    """Keep the exact title match and an optional YouTube notification-count match."""
+    key = media_title_key(caption)
+    if key is None:
+        return ()
+    caption = FIREFOX_SUFFIX.sub('', ' '.join(unicodedata.normalize('NFKC', caption).split()))
+    if re.search(r'\s+[—–-]\s+YouTube$', caption, re.I):
+        unbadged = re.sub(r'^\([0-9]+\)\s+', '', caption)
+        alternate = media_title_key(unbadged)
+        if alternate and alternate != key:
+            # Only the window caption has this decoration. Preserve the exact
+            # candidate too: a video's actual title may itself start with (1).
+            return (key, alternate)
+    return (key,)
+
+
 def matches_focused_tab(focus, video):
+    titles = focus.get('media_title') or ()
+    if isinstance(titles, str):
+        titles = (titles,)
     return (not FIREFOX.search(focus.get('app', '')) or
-            bool(video.get('title_hash') and video['title_hash'] == focus.get('media_title')))
+            bool(video.get('title_hash') and video['title_hash'] in titles))
 
 
 def video_token(state):

@@ -10,7 +10,7 @@ import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'touchbar'))
 from gi.repository import Gio, GLib
-from media import MediaClient, PATH, PLAYER, video_token, media_title_key
+from media import MediaClient, PATH, PLAYER, video_token, media_title_key, window_media_title_keys
 
 NAME = 'org.mpris.MediaPlayer2.firefox.touchbar_fixture'
 
@@ -80,7 +80,7 @@ def exercise(browser='firefox'):
             client = MediaClient()
             focus = {'kind': 'desktop', 'app': {'firefox':'firefox.desktop','chrome':'google-chrome.desktop',
                       'vlc':'vlc.desktop'}[browser], 'pid': process.pid,
-                      'media_title': media_title_key('Fixture video - YouTube — Mozilla Firefox')}
+                      'media_title': window_media_title_keys('(1) Fixture video - YouTube — Mozilla Firefox')}
             video = client.read(focus)
             assert video and video['length'] == 120_000_000 and video['position'] == 30_000_000
             assert video['browser'] == ('player' if browser == 'vlc' else browser)
@@ -105,7 +105,7 @@ def exercise(browser='firefox'):
             if browser == 'firefox':
                 # The media session continues in a background tab. Returning
                 # restores its known duration even though MPRIS still omits it.
-                assert client.read({**focus, 'media_title': media_title_key('New Tab — Mozilla Firefox')}) is None
+                assert client.read({**focus, 'media_title': window_media_title_keys('(1) New Tab - YouTube — Mozilla Firefox')}) is None
                 restored = client.read(focus)
                 assert restored['length'] == 120_000_000 and restored['position'] >= external['position']
                 assert not client.read({**focus, 'media_title': None})

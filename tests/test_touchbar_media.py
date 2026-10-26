@@ -8,7 +8,8 @@ from unittest.mock import Mock, patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'touchbar'))
-from media import MediaClient, PLAYER, PATH, position_at, video_token, media_title_key
+from media import (MediaClient, PLAYER, PATH, position_at, video_token, media_title_key,
+                   window_media_title_keys, matches_focused_tab)
 from model import Scrub, scene_for
 
 
@@ -192,6 +193,26 @@ class FirefoxClockTests(unittest.TestCase):
 
 
 class FocusedTitleTests(unittest.TestCase):
+    def test_youtube_notification_count_keeps_exact_video_title_matching(self):
+        sample = video(title_hash=media_title_key('The Fixture Video'))
+        for caption in ('(1) The Fixture Video - YouTube — Mozilla Firefox',
+                        '(23) The Fixture Video - YouTube — Firefox (Private Browsing)',
+                        '  (3)  THE   FIXTURE VIDEO - YouTube — Mozilla Firefox'):
+            focus = state(media_title=window_media_title_keys(caption))
+            self.assertTrue(matches_focused_tab(focus, sample))
+            self.assertFalse(matches_focused_tab(focus, video(title_hash=media_title_key('Another Video'))))
+        for caption in ('(1) The Fixture Video — Mozilla Firefox',
+                        '(1) The Fixture Video - Vimeo — Mozilla Firefox',
+                        '(1) Another Video - YouTube — Mozilla Firefox', '', None):
+            self.assertFalse(matches_focused_tab(state(media_title=window_media_title_keys(caption)), sample))
+        # A literal numeric prefix remains eligible; metadata is never stripped.
+        numeric = video(title_hash=media_title_key('(1) The Fixture Video'))
+        for caption in ('(1) The Fixture Video - YouTube — Mozilla Firefox',
+                        '(2) (1) The Fixture Video - YouTube — Mozilla Firefox'):
+            self.assertTrue(matches_focused_tab(state(media_title=window_media_title_keys(caption)), numeric))
+        self.assertFalse(matches_focused_tab(state(media_title=window_media_title_keys(
+            '(2) The Fixture Video - YouTube — Mozilla Firefox')), numeric))
+
     def test_title_matching_is_exact_after_browser_and_site_suffixes(self):
         title = 'The Fixture Video'
         for caption in (title, title+' - YouTube — Mozilla Firefox',
@@ -208,19 +229,21 @@ class FocusedTitleTests(unittest.TestCase):
         reader.active_focus = (42, 'window', 1)
         focus = {'pid': 42, 'window': 'window', 'focus': 1}
         reader.active_window.get_name.return_value = 'Fixture - YouTube — Mozilla Firefox'
-        self.assertEqual(reader.media_title(focus), media_title_key('Fixture'))
+        self.assertEqual(reader.media_title(focus), (media_title_key('Fixture'),))
+        reader.active_window.get_name.return_value = '(1) Fixture - YouTube — Mozilla Firefox'
+        self.assertIn(media_title_key('Fixture'), reader.media_title(focus))
         reader.active_window.get_name.return_value = 'New Tab — Mozilla Firefox'
-        self.assertEqual(reader.media_title(focus), media_title_key('New Tab'))
-        self.assertEqual(reader.active_window.clear_cache_single.call_count, 2)
+        self.assertEqual(reader.media_title(focus), (media_title_key('New Tab'),))
+        self.assertEqual(reader.active_window.clear_cache_single.call_count, 3)
         self.assertIsNone(reader.media_title({**focus, 'focus': 2}))
         reader.active_window.get_name.side_effect = RuntimeError('Defunct window')
         self.assertIsNone(reader.media_title(focus))
 
     def test_tab_change_cancels_held_browser_action(self):
         from model import Gesture
-        base = state(video=None, media_title=media_title_key('First tab'),
+        base = state(video=None, media_title=window_media_title_keys('(1) First tab - YouTube — Firefox'),
                      actions=[{'id': 'shortcut-0', 'label': 'Back'}])
-        first, second = scene_for(base), scene_for({**base, 'media_title': media_title_key('New Tab')})
+        first, second = scene_for(base), scene_for({**base, 'media_title': window_media_title_keys('New Tab')})
         gesture = Gesture()
         gesture.update_scene(first.signature, 0)
         gesture.input([(0, 500, 30)], lambda *_: 'context:shortcut-0', 1)
@@ -234,7 +257,7 @@ class FocusedTitleTests(unittest.TestCase):
         worker = DesktopWorker.__new__(DesktopWorker)
         worker.queue, worker.lock, worker.stop = queue.Queue(), threading.Lock(), threading.Event()
         worker.snapshot, worker.updated = {}, 0
-        key = media_title_key('Fixture')
+        key = window_media_title_keys('(1) Fixture - YouTube — Mozilla Firefox')
         focus = {'kind': 'desktop', 'app': 'firefox.desktop', 'pid': 42,
                  'token': 'fixture', 'window': 'window', 'focus': 1}
         sample = video()
@@ -242,7 +265,7 @@ class FocusedTitleTests(unittest.TestCase):
         shell, reader, media, thumbnails = Mock(), Mock(), Mock(), Mock()
         shell.state.return_value, shell.display_on.return_value = focus, True
         reader.scan.return_value = None
-        reader.media_title.side_effect = [key, media_title_key('New Tab')]
+        reader.media_title.side_effect = [key, window_media_title_keys('(1) New Tab - YouTube — Firefox')]
         media.read.return_value = sample
         accepted = []
         def activate(action, expected, guard):

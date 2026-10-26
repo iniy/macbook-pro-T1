@@ -95,7 +95,7 @@ def scene_for(state, overlay=None, fn=False, features=0x27, page=0):
         buttons += controls
     context = state.get('token', 'unavailable') + f':{page}'
     if state.get('media_title'):
-        context += ':tab:' + state['media_title']
+        context += ':tab:' + json.dumps(state['media_title'])
     title = state.get('title', 'Touch Bar') if actions or kind not in ('desktop', 'controls') else ''
     return Scene(title, tuple(buttons), context, kind)
 

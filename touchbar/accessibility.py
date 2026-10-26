@@ -145,13 +145,13 @@ class DialogReader:
     def media_title(self, focus):
         # Reuse the focused top-level window already found by dialog discovery.
         # One caption read detects tab changes; never traverse browser documents.
-        from media import media_title_key
+        from media import window_media_title_keys
         if (self.active_window is None or self.active_focus !=
                 tuple(focus.get(k) for k in ('pid', 'window', 'focus'))):
             return None
         try:
             self.active_window.clear_cache_single()
-            return media_title_key(self.active_window.get_name())
+            return window_media_title_keys(self.active_window.get_name())
         except Exception:
             return None
 
