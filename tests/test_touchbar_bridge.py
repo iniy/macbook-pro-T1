@@ -269,6 +269,22 @@ class InstallerTests(unittest.TestCase):
 
 
 class RendererTests(unittest.TestCase):
+    def test_fingerprint_cancel_is_left_and_guidance_is_not_a_touch_target(self):
+        import cairo
+        from paint import draw, hit_test
+        for width, height in ((2170, 60), (1085, 30)):
+            for state in ('authenticate', 'approve', 'retry', 'enrollment'):
+                scene = scene_for({}, {'state': state, 'pid': 42})
+                surface = cairo.ImageSurface(cairo.FORMAT_RGB24, width, height)
+                targets = []
+                for frame in (0, 2, 4):
+                    boxes = draw(surface, scene, width, height, frame=frame)
+                    targets.append(boxes)
+                    self.assertEqual(hit_test(boxes, width * .04, height / 2), 'hardware:cancel')
+                    self.assertIsNone(hit_test(boxes, width * .98, height / 2))
+                self.assertEqual(targets[0], targets[1])
+                self.assertEqual(targets[1], targets[2])
+
     def test_touch_targets_survive_context_and_panel_scaling(self):
         from paint import regions, hit_test
         scenes = [scene_for({}, features=0x3f), scene_for({}, fn=True)]
@@ -314,6 +330,61 @@ class RendererTests(unittest.TestCase):
 
 
 class RuntimeTests(unittest.TestCase):
+    def test_fingerprint_fade_stops_and_left_cancel_survives_frames(self):
+        import bridge
+        import protocol
+        from types import SimpleNamespace
+        now, frames, actions = [0.0], [], []
+        case = self
+
+        class FakeHardware:
+            width, height, features, minor = 2170, 60, 0x3f, 1
+
+            def __init__(self):
+                self.memory = bytearray(self.width * self.height * 4)
+                self.busy = False
+
+            def submit(self):
+                case.assertFalse(self.busy)
+                frames.append((now[0], bytes(self.memory)))
+                self.busy, self.release_at = True, now[0] + .08
+
+            def send(self, kind):
+                actions.append(kind)
+
+            def event(self):
+                if self.busy:
+                    case.assertEqual(bytes(self.memory), frames[-1][1])
+                now[0] = round(now[0] + .04, 2)
+                if self.busy and now[0] >= self.release_at:
+                    self.busy = False
+                if now[0] >= 2:
+                    raise KeyboardInterrupt
+                contacts = {0.4: [(0, 80, 30)], 0.52: [],
+                            0.8: [(0, 2140, 30)], 0.92: []}
+                if now[0] in contacts:
+                    return (int(now[0] * 1_000_000), False, contacts[now[0]])
+
+            def close(self):
+                pass
+
+        worker = SimpleNamespace(read=lambda: {'token': 'fixture', 'display': now[0] < 1.6})
+        overlay = lambda: {'state': 'authenticate' if now[0] < 1.2 else 'success', 'pid': 42}
+        with patch.object(protocol, 'Hardware', FakeHardware), \
+                patch.object(bridge, 'read_overlay', side_effect=overlay), \
+                patch.object(bridge.time, 'monotonic', side_effect=lambda: now[0]):
+            with self.assertRaises(KeyboardInterrupt):
+                bridge.render_session(worker)
+        self.assertEqual(actions, [7], 'only the left Cancel tap should cancel')
+        fade = [pixels for stamp, pixels in frames if stamp < .3]
+        self.assertGreaterEqual(len(set(fade)), 2, 'guidance must visibly fade in')
+        self.assertFalse(any(.2 < stamp < .4 or .65 < stamp < 1.2 for stamp, _ in frames),
+                         'the completed fade must stop redrawing')
+        self.assertEqual(sum(1.2 <= stamp < 1.6 for stamp, _ in frames), 1)
+        self.assertEqual(sum(stamp >= 1.6 for stamp, _ in frames), 1)
+        self.assertFalse(any(pixel & 0x00ffffff for pixel in memoryview(frames[-1][1]).cast('I')),
+                         'display-off must remain blank (ignore the unused RGB24 byte)')
+
     def test_cold_full_renderer_startup(self):
         import subprocess
         for _ in range(3):

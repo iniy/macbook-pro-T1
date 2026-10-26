@@ -69,6 +69,11 @@ use absolute panel pixels so desktop DPI or theme changes cannot resize them.
 App controls share the same single-row styling, with Esc and volume staying in
 their usual positions. Holding Fn temporarily displays the function keys.
 
+Active Touch ID guidance sits at the right edge beside the sensor, with an arrow
+pointing toward it and the original renderer's 150 ms fade-in. The existing
+Cancel button is at the far left. Animation frames keep touch targets stable
+and stop once the fade completes.
+
 This is a macOS-like visual treatment, not Apple's exact San Francisco font or
 proprietary artwork. [Apple's font license](https://developer.apple.com/fonts/)
 does not grant this Linux use. [Asset provenance and licenses](assets/README.md)

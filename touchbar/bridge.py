@@ -29,7 +29,7 @@ def hardware_action(hardware, action):
 
 def render_session(worker):
     import cairo
-    from paint import draw, hit_test
+    from paint import animation_frame, draw, hit_test
     from protocol import Hardware
     if os.geteuid() == 0:
         raise RuntimeError('Run the renderer as the desktop user')
@@ -39,6 +39,7 @@ def render_session(worker):
     gesture, fn, page = Gesture(), False, 0
     rendered, render_state, boxes, token, context = None, None, [], '', None
     stamp = None
+    guidance_since = None
     try:
         while True:
             now = time.monotonic()
@@ -49,11 +50,17 @@ def render_session(worker):
             scene = scene_for(state, overlay, fn, hardware.features if hardware.minor else 0x27, page)
             gesture.update_scene(scene.signature, now)
             pressed = gesture.held[1] if gesture.held and not gesture.blocked else None
-            if (scene.signature, pressed) != render_state and not hardware.busy:
-                boxes = draw(surface, scene, hardware.width, hardware.height, pressed)
+            if scene.kind != 'fingerprint':
+                guidance_since = None
+            elif guidance_since is None:
+                guidance_since = now
+            frame = animation_frame(scene, now - guidance_since if guidance_since is not None else 0)
+            next_render_state = (scene.signature, pressed, frame)
+            if next_render_state != render_state and not hardware.busy:
+                boxes = draw(surface, scene, hardware.width, hardware.height, pressed, frame or 0)
                 hardware.submit()
                 rendered, token = scene.signature, state.get('token', '')
-                render_state = (scene.signature, pressed)
+                render_state = next_render_state
             event = hardware.event()
             if event is None:
                 continue

@@ -50,7 +50,7 @@ def regions(scene, width, height):
             start += button_width + gap
         return result
     if scene.kind == 'fingerprint':
-        return [box(1988, 182, scene.buttons[0])]
+        return [box(0, 182, scene.buttons[0])]
     if scene.kind == 'function':
         step = 2170 / len(scene.buttons)
         return [box(i*step + (5 if i else 0), step - (10 if i else 5), button)
@@ -69,7 +69,7 @@ def hit_test(regions, x, y):
                  if button.enabled and left <= x < left+width and top <= y < top+height), None)
 
 
-def text(ctx, label, x, y, width, height, size, color, centered=True, medium=True):
+def text(ctx, label, x, y, width, height, size, color, alignment=Pango.Alignment.CENTER, medium=True):
     context = FONT_MAP.create_context()
     PangoCairo.update_context(ctx, context)
     PangoCairo.context_set_resolution(context, 96)
@@ -89,7 +89,7 @@ def text(ctx, label, x, y, width, height, size, color, centered=True, medium=Tru
     layout.set_width(max(1, int(width)) * Pango.SCALE)
     layout.set_ellipsize(Pango.EllipsizeMode.END)
     layout.set_single_paragraph_mode(True)
-    layout.set_alignment(Pango.Alignment.CENTER if centered else Pango.Alignment.LEFT)
+    layout.set_alignment(alignment)
     _, logical = layout.get_pixel_extents()
     ctx.set_source_rgb(*color)
     ctx.move_to(x, y + (height - logical.height) / 2 - logical.y)
@@ -108,7 +108,43 @@ def rounded(ctx, x, y, width, height, radius):
     ctx.fill()
 
 
-def draw(surface, scene, width, height, pressed=None):
+def animation_frame(scene, elapsed):
+    # Cosmetic frames must not change the scene signature or reset a held tap.
+    # Match the original 150 ms overlay fade using the existing 40 ms poll.
+    if scene.kind == 'fingerprint' and scene.buttons:
+        return min(int(max(0, elapsed) * 25), 4)
+    return None
+
+
+def fingerprint_guidance(ctx, scene, width, height, frame):
+    if not scene.buttons:
+        # Keep the existing completed-verification presentation unchanged.
+        text(ctx, scene.title, 16, 0, width - 230*width/2170, height,
+             26*height/60, FOREGROUND, Pango.Alignment.LEFT, False)
+        return
+    ctx.save()
+    ctx.scale(width / 2170, height / 60)
+    ctx.push_group()
+    # Keep the label beside the physical sensor. Reserve the far-left Cancel
+    # target and the original T1Bridge right margin, arrow width and label gap.
+    text(ctx, scene.title, 220, 0, 1877, 60, 26, FOREGROUND,
+         Pango.Alignment.RIGHT, False)
+    ctx.set_line_cap(cairo.LINE_CAP_ROUND)
+    ctx.set_line_join(cairo.LINE_JOIN_ROUND)
+    ctx.set_line_width(2.2)
+    ctx.set_source_rgb(*FOREGROUND)
+    ctx.move_to(2114, 30)
+    ctx.line_to(2152, 30)
+    ctx.move_to(2144, 22)
+    ctx.line_to(2152, 30)
+    ctx.line_to(2144, 38)
+    ctx.stroke()
+    ctx.pop_group_to_source()
+    ctx.paint_with_alpha(min(1, frame * .04 / .15))
+    ctx.restore()
+
+
+def draw(surface, scene, width, height, pressed=None, frame=4):
     ctx = cairo.Context(surface)
     ctx.set_source_rgb(0, 0, 0)
     ctx.paint()
@@ -118,8 +154,7 @@ def draw(surface, scene, width, height, pressed=None):
     boxes = regions(scene, width, height)
     sy = height / 60
     if scene.kind == 'fingerprint':
-        text(ctx, scene.title, 16, 0, width - 230*width/2170, height,
-             26*sy, FOREGROUND, False, False)
+        fingerprint_guidance(ctx, scene, width, height, frame)
     for i, (x, y, w, h, button) in enumerate(boxes):
         primary = button.suggested or (scene.kind == 'shell-dialog' and len(boxes) == 2 and i == 1)
         held = button.action == pressed and button.enabled
