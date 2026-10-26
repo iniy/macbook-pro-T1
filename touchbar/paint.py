@@ -2,6 +2,8 @@
 """Retina-sized control glyphs and consistent rounded, single-row keys."""
 import cairo
 import math
+import io
+from functools import lru_cache
 from pathlib import Path
 import gi
 gi.require_foreign('cairo')
@@ -9,6 +11,7 @@ gi.require_version('Pango', '1.0')
 gi.require_version('PangoCairo', '1.0')
 from gi.repository import Pango, PangoCairo
 import icons
+from thumbnails import HEIGHT as FILMSTRIP_HEIGHT, tile_bounds, PREVIEW_WIDTH, PREVIEW_HEIGHT, PREVIEW_COLUMNS
 
 # App-local fonts: neither desktop preferences nor system font files change.
 FONT_MAP = PangoCairo.FontMap.new()
@@ -51,6 +54,15 @@ def regions(scene, width, height):
         return result
     if scene.kind == 'fingerprint':
         return [box(0, 182, scene.buttons[0])]
+    if scene.kind == 'volume':
+        slots = {'volume:level': (scene.volume['left'], scene.volume['width']),
+                 'volume:close': (scene.volume['close_left'], 80)}
+        return [box(*slots[b.action], b) for b in scene.buttons]
+    if scene.kind == 'video':
+        slots = {'video:backward': (194, 112), 'video:toggle': (314, 112),
+                 'video:forward': (434, 112), 'video:seek': (574, 998)}
+        return [box(*(slots[b.action] if b.action in slots else STOCK[b.action]), b)
+                for b in scene.buttons]
     if scene.kind == 'function':
         step = 2170 / len(scene.buttons)
         return [box(i*step + (5 if i else 0), step - (10 if i else 5), button)
@@ -67,6 +79,174 @@ def regions(scene, width, height):
 def hit_test(regions, x, y):
     return next((button.action for left, top, width, height, button in regions
                  if button.enabled and left <= x < left+width and top <= y < top+height), None)
+
+
+def seek_fraction(regions, x, y):
+    for left, top, width, height, button in regions:
+        if button.action == 'video:seek' and button.enabled:
+            start, end = left + width * 90/998, left + width * 890/998
+            return max(0, min(1, (x - start) / (end - start)))
+    return 0
+
+
+def volume_fraction(regions, x, y):
+    for left, top, width, height, button in regions:
+        if button.action == 'volume:level' and button.enabled:
+            start, end = left + width * 113/502, left + width * 389/502
+            return max(0, min(1, (x-start)/(end-start)))
+    return 0
+
+
+def volume_slider(ctx, state, x, y, width, height, enabled, active):
+    ctx.save()
+    ctx.translate(x, y)
+    ctx.scale(width/502, height/54)
+    ctx.set_source_rgb(*(55/255,) * 3)
+    rounded(ctx, 0, 5, 502, 42, 8)
+    icons.draw(ctx, 'audio:down', 32, 8, 38, 36, enabled)
+    icons.draw(ctx, 'audio:up', 430, 8, 44, 36, enabled)
+    ctx.set_source_rgb(*((.42,) * 3 if enabled else (.25,) * 3))
+    rounded(ctx, 113, 24, 276, 6, 3)
+    if enabled:
+        fraction = state['level']
+        ctx.set_source_rgb(*((.42,) * 3 if state['muted'] else (57/255, 130/255, 204/255)))
+        if fraction:
+            rounded(ctx, 113, 24, 276*fraction, 6, 3)
+        ctx.set_source_rgb(1, 1, 1)
+        rounded(ctx, 113 + 276*fraction - 21, 5, 42, 42, 9)
+    ctx.restore()
+
+
+def volume_close(ctx, x, y, width, height, active):
+    ctx.save()
+    ctx.translate(x+width/2, y+height/2)
+    ctx.scale(height/54, height/54)
+    ctx.set_source_rgb(*((.85,) * 3 if active else (.7,) * 3))
+    ctx.arc(0, 0, 15, 0, 2*math.pi)
+    ctx.fill()
+    ctx.set_source_rgb(0, 0, 0)
+    ctx.set_line_width(3.5)
+    ctx.set_line_cap(cairo.LINE_CAP_ROUND)
+    ctx.move_to(-5, -5)
+    ctx.line_to(5, 5)
+    ctx.move_to(5, -5)
+    ctx.line_to(-5, 5)
+    ctx.stroke()
+    ctx.restore()
+
+
+def time_label(microseconds):
+    seconds = max(0, int(microseconds / 1_000_000))
+    hours, seconds = divmod(seconds, 3600)
+    minutes, seconds = divmod(seconds, 60)
+    return f'{hours}:{minutes:02}:{seconds:02}' if hours else f'{minutes}:{seconds:02}'
+
+
+@lru_cache(maxsize=4)
+def filmstrip_surface(png):
+    return cairo.ImageSurface.create_from_png(io.BytesIO(png))
+
+
+def glass_lens(ctx, filmstrip, fraction, active, lens_frames=None):
+    width, height = 74, 52
+    left = max(90, min(890-width, 90 + 800*fraction - width/2))
+    top = 4
+    # A soft shadow lifts the lens above the filmstrip without moving the rail.
+    for spread, alpha in ((4, .10), (2, .20), (0, .45)):
+        ctx.set_source_rgba(0, 0, 0, alpha)
+        rounded(ctx, left-spread, top+2-spread/2, width+spread*2, height+spread, 10+spread)
+    ctx.save()
+    rounded(ctx, left, top, width, height, 10, fill=False)
+    ctx.clip()
+    # Dissolve dense preview frames inside the glass, independently of the
+    # twelve spaced thumbnails below it. Add weighted premultiplied pixels so
+    # the dissolve stays opaque instead of briefly darkening between frames.
+    frames = lens_frames or ((filmstrip.frame_at(fraction), 1),)
+    ctx.push_group()
+    ctx.set_operator(cairo.OPERATOR_ADD)
+    for index, weight in frames:
+        ctx.save()
+        ctx.translate(left, top)
+        if filmstrip.positions:
+            image = filmstrip_surface(filmstrip.previews)
+            ctx.scale(width/PREVIEW_WIDTH, height/PREVIEW_HEIGHT)
+            ctx.set_source_surface(image, -(index % PREVIEW_COLUMNS)*PREVIEW_WIDTH,
+                                   -(index // PREVIEW_COLUMNS)*PREVIEW_HEIGHT)
+        else:
+            image = filmstrip_surface(filmstrip.png)
+            start, end = tile_bounds(index)
+            ctx.scale(width/(end-start), height/FILMSTRIP_HEIGHT)
+            ctx.set_source_surface(image, -start, 0)
+        ctx.get_source().set_filter(cairo.FILTER_BILINEAR)
+        ctx.paint_with_alpha(weight)
+        ctx.restore()
+    ctx.pop_group_to_source()
+    ctx.set_operator(cairo.OPERATOR_OVER)
+    ctx.paint()
+    glass = cairo.LinearGradient(left, top, left+width*.35, top+height)
+    for stop, alpha in ((0, .48), (.34, .18), (.52, .04), (.54, .14), (1, .07)):
+        glass.add_color_stop_rgba(stop, .87, .95, 1, alpha)
+    ctx.set_source(glass)
+    ctx.paint()
+    shade = cairo.LinearGradient(0, top, 0, top+height)
+    shade.add_color_stop_rgba(0, 0, 0, 0, 0)
+    shade.add_color_stop_rgba(.65, 0, 0, 0, 0)
+    shade.add_color_stop_rgba(1, 0, .02, .05, .22)
+    ctx.set_source(shade)
+    ctx.paint()
+    ctx.restore()
+    rim = cairo.LinearGradient(0, top, 0, top+height)
+    rim.add_color_stop_rgba(0, 1, 1, 1, 1)
+    rim.add_color_stop_rgba(.45, .78, .9, 1, .85)
+    rim.add_color_stop_rgba(1, .92, .97, 1, .95)
+    ctx.set_source(rim)
+    ctx.set_line_width(2.5 if active else 2)
+    rounded(ctx, left+1, top+1, width-2, height-2, 9, fill=False)
+    ctx.stroke()
+    ctx.set_source_rgba(1, 1, 1, .4)
+    ctx.set_line_width(1)
+    rounded(ctx, left+3, top+3, width-6, height-6, 7, fill=False)
+    ctx.stroke()
+
+
+def timeline(ctx, video, x, y, width, height, enabled, position, scrub_fraction, lens_frames=None):
+    ctx.save()
+    ctx.translate(x, y)
+    ctx.scale(width / 998, height / 60)
+    length = video['length']
+    position = video['position'] if position is None else position
+    if scrub_fraction is not None and length:
+        position = int(length * scrub_fraction)
+    color = FOREGROUND if enabled else (.43,) * 3
+    text(ctx, time_label(position), 6, 0, 78, 60, 20, color, medium=False)
+    remaining = '−' + time_label(max(0, length - position)) if length else '—:—'
+    text(ctx, remaining, 900, 0, 92, 60, 20, color, medium=False)
+    filmstrip = video.get('filmstrip')
+    if filmstrip and enabled and length:
+        ctx.save()
+        rounded(ctx, 90, 9, 800, 42, 5, fill=False)
+        ctx.clip()
+        image = filmstrip_surface(filmstrip.png)
+        ctx.set_source_surface(image, 90, 9)
+        ctx.paint()
+        ctx.set_source_rgba(0, 0, 0, .15)
+        ctx.paint()
+        ctx.restore()
+        fraction = max(0, min(1, position / length))
+        glass_lens(ctx, filmstrip, fraction, scrub_fraction is not None, lens_frames)
+        ctx.restore()
+        return
+    ctx.set_source_rgb(*((.42,) * 3 if enabled else (.25,) * 3))
+    rounded(ctx, 90, 27, 800, 6, 3)
+    if length > 0:
+        fraction = max(0, min(1, position / length))
+        ctx.set_source_rgb(*color)
+        if fraction:
+            rounded(ctx, 90, 27, 800 * fraction, 6, 3)
+        if enabled:
+            ctx.arc(90 + 800 * fraction, 30, 6 if scrub_fraction is None else 8, 0, 2*math.pi)
+            ctx.fill()
+    ctx.restore()
 
 
 def text(ctx, label, x, y, width, height, size, color, alignment=Pango.Alignment.CENTER, medium=True):
@@ -96,7 +276,7 @@ def text(ctx, label, x, y, width, height, size, color, alignment=Pango.Alignment
     PangoCairo.show_layout(ctx, layout)
 
 
-def rounded(ctx, x, y, width, height, radius):
+def rounded(ctx, x, y, width, height, radius, fill=True):
     radius = min(radius, height / 2, width / 2)
     ctx.new_sub_path()
     for cx, cy, start in ((x+width-radius, y+radius, -math.pi/2),
@@ -105,7 +285,8 @@ def rounded(ctx, x, y, width, height, radius):
                           (x+radius, y+radius, math.pi)):
         ctx.arc(cx, cy, radius, start, start + math.pi/2)
     ctx.close_path()
-    ctx.fill()
+    if fill:
+        ctx.fill()
 
 
 def animation_frame(scene, elapsed):
@@ -144,7 +325,7 @@ def fingerprint_guidance(ctx, scene, width, height, frame):
     ctx.restore()
 
 
-def draw(surface, scene, width, height, pressed=None, frame=4):
+def draw(surface, scene, width, height, pressed=None, frame=4, position=None, scrub_fraction=None, lens_frames=None):
     ctx = cairo.Context(surface)
     ctx.set_source_rgb(0, 0, 0)
     ctx.paint()
@@ -158,9 +339,20 @@ def draw(surface, scene, width, height, pressed=None, frame=4):
     for i, (x, y, w, h, button) in enumerate(boxes):
         primary = button.suggested or (scene.kind == 'shell-dialog' and len(boxes) == 2 and i == 1)
         held = button.action == pressed and button.enabled
+        if scene.kind == 'volume':
+            if button.action == 'volume:level':
+                volume_slider(ctx, scene.volume, x, y, w, h, button.enabled, held)
+            else:
+                volume_close(ctx, x, y, w, h, held)
+            continue
         fill = ((.18, .57, 1) if held else ACCENT) if primary and button.enabled else PRESSED if held else PLATE
+        if button.action == 'audio:mute' and scene.volume and scene.volume['muted']:
+            fill = (1, .35, .31) if held else (1, .23, .19)
         ctx.set_source_rgb(*fill)
         rounded(ctx, x, y, w, h, 8*sy)
+        if button.action == 'video:seek' and scene.playback:
+            timeline(ctx, scene.playback, x, y, w, h, button.enabled, position, scrub_fraction, lens_frames)
+            continue
         if icons.draw(ctx, button.action, x, y, w, h, button.enabled, button.icon):
             continue
         color = FOREGROUND if button.enabled else (.43,) * 3

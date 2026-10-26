@@ -54,6 +54,7 @@ def main():
     previous = json.loads(journal.read_text()) if journal.exists() else {'files': {}}
     from gi.repository import Gio
     settings = Gio.Settings.new('org.gnome.shell')
+    accessibility = Gio.Settings.new('org.gnome.desktop.interface')
     if args.action == 'status':
         print(run('gnome-extensions', 'info', UUID).stdout.strip())
         print('Renderer selected:', selection.exists() and not selection.is_symlink() and
@@ -71,6 +72,7 @@ def main():
         if not hasattr(PangoCairo.FontMap.get_default(), 'add_font_file'):
             raise RuntimeError('Bundled fonts require Pango 1.56 or newer')
         import cairo
+        from PIL import Image
         payload = {library / p.name: p.read_bytes() for p in HERE.glob('*.py') if p.name != 'install.py'}
         payload.update({library / p.relative_to(HERE): p.read_bytes()
                         for p in (HERE / 'assets').rglob('*') if p.is_file()})
@@ -108,6 +110,10 @@ def main():
         expected = previous.get('selected_sha')
         if expected and (selection.is_symlink() or not selection.exists() or sha(selection) != expected):
             raise RuntimeError('Renderer selection changed; preserving it')
+        # Native dialog event registration can enable the standard AT-SPI bus.
+        # Preserve the original setting for disable/uninstall.
+        if 'accessibility_before' not in previous:
+            previous['accessibility_before']=accessibility.get_boolean('toolkit-accessibility')
         enabled = list(settings.get_strv('enabled-extensions'))
         if UUID not in enabled:
             settings.set_strv('enabled-extensions', enabled + [UUID])
@@ -143,6 +149,9 @@ def main():
             Gio.Settings.sync()
         previous.pop('selection_before', None)
         previous.pop('extension_before', None)
+        if previous.pop('accessibility_before', None) is False and accessibility.get_boolean('toolkit-accessibility'):
+            accessibility.set_boolean('toolkit-accessibility', False)
+            Gio.Settings.sync()
         atomic(journal, (json.dumps(previous, indent=2) + '\n').encode(), 0o600)
         run('systemctl', '--user', 'restart', 't1-touchbar.service')
     if args.action == 'uninstall':

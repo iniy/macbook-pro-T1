@@ -13,11 +13,37 @@ class DialogReader:
     def __init__(self):
         import gi
         gi.require_version('Atspi', '2.0')
-        from gi.repository import Atspi
+        from gi.repository import Atspi, GLib
         self.api = Atspi
+        self.context = GLib.MainContext.default()
         Atspi.set_timeout(100, 100)
         self.targets = {}
         self.dialog = None
+        self.negative, self.checked, self.dirty, self.active_bus = None, -10, True, None
+        self.events = ('window:create','window:activate','window:destroy',
+                       'object:children-changed','object:state-changed:modal')
+        self.listener = Atspi.EventListener.new(self.invalidate)
+        self.listening = all(self.listener.register(event) for event in self.events)
+
+    def invalidate(self, event, *_):
+        try:
+            if self.active_bus is None or event.source.app.bus_name == self.active_bus:
+                self.dirty = True
+        except Exception:
+            self.dirty = True
+
+    def close(self):
+        for event in self.events:
+            self.listener.deregister(event)
+
+    def cached_absence(self, focus):
+        for _ in range(32):
+            if not self.context.pending():
+                break
+            self.context.iteration(False)
+        key = tuple(focus.get(k) for k in ('token','pid','window','focus'))
+        return (self.listening and not self.dirty and self.negative == key
+                and time.monotonic()-self.checked < 1)
 
     @staticmethod
     def identity(node):
@@ -31,6 +57,9 @@ class DialogReader:
         self.targets, self.dialog = {}, None
         if focus.get('kind') not in ('desktop', 'notification') or focus.get('pid', 0) <= 0:
             return None
+        if self.cached_absence(focus):
+            return None
+        self.dirty, self.negative = False, None
         api = self.api
         deadline = time.monotonic() + 0.30
         visited = 0
@@ -59,6 +88,7 @@ class DialogReader:
             apps = [app for app in apps if app and app.get_process_id() == focus['pid']]
             candidates = []
             for app in apps:
+                self.active_bus = app.app.bus_name
                 for i in range(min(app.get_child_count(), 64)):
                     top = app.get_child_at_index(i)
                     states = self.states(top)
@@ -71,6 +101,9 @@ class DialogReader:
                     if dialogs:
                         candidates.append(max(dialogs, key=lambda item: item[1])[0])
             if len(candidates) != 1:
+                if not candidates:
+                    self.negative = tuple(focus.get(k) for k in ('token','pid','window','focus'))
+                    self.checked = time.monotonic()
                 return None
             dialog = candidates[0]
             self.dialog = dialog

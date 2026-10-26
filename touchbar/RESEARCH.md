@@ -165,8 +165,75 @@ therefore enables version 51 only; future versions need an adapter review and
 real-shell integration tests, not an untested metadata version bump.
 
 Full macOS parity also includes app-authored rich sliders, candidate suggestions,
-formatting palettes, color pickers, timeline scrubbing and customizable layouts.
+formatting palettes, color pickers, per-site thumbnail adapters and customizable layouts.
 Those require application adapters and are not implemented by this generic dialog
 bridge. The initial release targets the requested system/dialog workflow and a
 small set of useful app profiles. A parity matrix in README records implemented
 behavior separately from hardware acceptance and remaining app-specific work.
+
+Browser playback now has a bounded MPRIS adapter, including play/pause,
+ten-second skips and a time scrubber when the player supplies duration and
+seeking. It matches the focused browser's process to the media bus owner and
+uses track-aware `SetPosition` calls. Dynamic position samples are excluded from
+gesture identity, so a moving timeline does not invalidate a drag. The
+[MPRIS Player specification](https://specifications.freedesktop.org/mpris/latest/Player_Interface.html)
+defines these capabilities and the stale-track protection; general thumbnail
+extraction and per-tab video identification require browser-specific adapters.
+
+Firefox's reported [MPRIS seek regression](https://bugzilla.mozilla.org/show_bug.cgi?id=2065930)
+can zero the reported position and remove duration until playback is paused.
+The adapter keeps known duration for the same media identity and anchors the
+clock to `Seeked` notifications. Notifications are delivered through a private
+GLib context drained on the desktop worker, which has no running GLib main loop.
+Local observation also found continuous zero-position playing samples without
+any `Seeked` notification. Firefox's same-video clock now continues from its
+previous sample in that case, so polling cannot repeatedly rewind the lens to
+the first second. Explicit seeks still override this fallback, and a new video
+session discards old timing even when replaying a previously seen identity.
+The identity also includes a hash of stable media metadata, because Firefox can
+reuse its MPRIS track object path across videos. No media titles or URLs are
+written to disk or diagnostics.
+
+YouTube thumbnail support uses the public player's storyboard data. The adapter
+validates the video ID, chooses a small sprite format, and samples twelve frames
+across the video's duration. The storyboard specification and sprite layout are
+also handled by the primary [yt-dlp YouTube extractor](https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/youtube/_video.py).
+The local implementation parses JSON without evaluating page scripts, allows
+only YouTube's public page/image hosts, bounds image sizes and requests, and
+fetches on a dedicated worker. It needs no browser settings or signing changes.
+When data is missing or incompatible, the approved time scrubber remains active.
+
+For smooth movement the renderer uses a 60 Hz animation deadline and a separate
+presentation clock, so property polling and touch samples do not directly step
+the marker. The lens reuses up to 240 previews from the already fetched sprites,
+blending frame changes over 100 ms without adding network requests.
+
+Live mirroring was prototyped through Mutter/PipeWire and reached about 30 fps,
+but the combined browser accessibility queries, redraws and desktop capture cost
+made real playback jitter. The user rejected that path. It is removed from the
+renderer and installer; no browser capture helper is required or installed.
+There is no direct decoder-to-Touch-Bar hardware video path in this implementation.
+Chrome keeps basic MPRIS controls, while Firefox retains its approved storyboards.
+
+Profiling identified repeated generic dialog scans and visually redundant 60 Hz
+redraws as larger Python costs than the GStreamer capture thread itself. The
+renderer now caches a verified absence of dialogs with native event invalidation,
+skips passive progress redraws below quarter-pixel steps, and advances its frame
+deadline even when duration is unavailable. Touch dragging and lens dissolves
+retain the existing presentation clock and 60 Hz scheduling. A Rust rewrite is
+not required to remove these avoidable operations.
+
+The volume popover follows the compact capsule, blue track, broad white thumb,
+and circular dismiss control illustrated in Apple's [MacBook Pro Essentials](https://support.apple.com/en-hk/guide/macbook-pro/apd2ef3d66b2/2023/mac/14).
+Apple also documents [sliding directly on a Control Strip volume button](https://support.apple.com/en-lk/guide/mac-help/-mchlbfd5b039/mac).
+Apple's [Logic Pro Touch Bar guide](https://support.apple.com/en-mz/guide/logicpro/lgcp94a1c475/mac)
+also describes holding a level control, dragging its slider, and releasing to
+return. The requested adapter interaction keeps 5% short taps and opens the
+slider after a 350 ms hold; this delay is an implementation choice, not an
+Apple-published timing. The compact slider follows the opening finger, with
+edge clamping, rather than copying the example image's absolute coordinates.
+A continuous hold-slide-release uses relative movement from the initial volume.
+The normal controls return when the popover closes. Active mute uses a red plate,
+as requested, with actual default-output state supplied by `wpctl` and refreshed
+by PulseAudio-compatible sink/server events. No captured Apple bitmap is shipped
+as an asset.

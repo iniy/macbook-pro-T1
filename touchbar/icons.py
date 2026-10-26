@@ -36,7 +36,8 @@ def surface(name):
 
 
 def draw_profile(ctx, name, x, y, width, height, enabled):
-    if name not in ('back', 'forward', 'reload', 'new-tab', 'search', 'address', 'new-folder', 'more'):
+    if name not in ('back', 'forward', 'reload', 'new-tab', 'search', 'address', 'new-folder', 'more',
+                    'play', 'pause', 'rewind', 'fast-forward', 'close'):
         return False
     # Original vector artwork in the same monochrome style and panel pixel
     # scale as the existing control masks. Never depend on theme icons/fonts.
@@ -48,7 +49,12 @@ def draw_profile(ctx, name, x, y, width, height, enabled):
     ctx.set_line_width(2.2)
     ctx.set_line_cap(cairo.LINE_CAP_ROUND)
     ctx.set_line_join(cairo.LINE_JOIN_ROUND)
-    if name in ('back', 'forward'):
+    if name == 'close':
+        ctx.move_to(8, 8)
+        ctx.line_to(24, 24)
+        ctx.move_to(24, 8)
+        ctx.line_to(8, 24)
+    elif name in ('back', 'forward'):
         outer, inner = (21, 10) if name == 'back' else (11, 22)
         ctx.move_to(outer, 5)
         ctx.line_to(inner, 16)
@@ -89,6 +95,26 @@ def draw_profile(ctx, name, x, y, width, height, enabled):
         ctx.line_to(24, 19.5)
         ctx.move_to(20, 15.5)
         ctx.line_to(20, 23.5)
+    elif name == 'play':
+        ctx.move_to(8, 4)
+        ctx.line_to(27, 16)
+        ctx.line_to(8, 28)
+        ctx.close_path()
+        ctx.fill()
+    elif name == 'pause':
+        ctx.rectangle(7, 4, 6, 24)
+        ctx.rectangle(20, 4, 6, 24)
+        ctx.fill()
+    elif name in ('rewind', 'fast-forward'):
+        if name == 'rewind':
+            ctx.translate(32, 0)
+            ctx.scale(-1, 1)
+        for start in (2, 16):
+            ctx.move_to(start, 6)
+            ctx.line_to(start + 14, 16)
+            ctx.line_to(start, 26)
+            ctx.close_path()
+        ctx.fill()
     else:
         for center in (6, 16, 26):
             ctx.new_sub_path()

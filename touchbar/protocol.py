@@ -134,11 +134,12 @@ class Hardware:
         self.submitted_at = time.monotonic()
         return True
 
-    def event(self):
+    def event(self, timeout=.04):
         if self.busy and time.monotonic() - getattr(self, 'submitted_at', time.monotonic()) > 3:
             raise ProtocolError('Frame release timed out')
         if any(time.monotonic() - started > 3 for _, started in self.pending.values()):
             raise ProtocolError('Hardware response timed out')
+        self.sock.settimeout(timeout)
         try:
             kind, request, data = self.receive()
         except socket.timeout:

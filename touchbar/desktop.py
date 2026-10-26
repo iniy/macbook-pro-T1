@@ -90,7 +90,11 @@ class DesktopWorker:
 
     def run(self):
         from accessibility import DialogReader
+        from media import MediaClient, video_token
+        from thumbnails import ThumbnailWorker
         client, reader = ShellClient(), DialogReader()
+        media = MediaClient()
+        thumbnails = ThumbnailWorker()
         consumed = None
         while not self.stop.is_set():
             started = time.monotonic()
@@ -98,6 +102,17 @@ class DesktopWorker:
                 focus = client.state()
                 snapshot = reader.scan(focus) or focus
                 snapshot['display'] = client.display_on()
+                video = media.read(snapshot)
+                if video:
+                    # Chrome keeps the requested basic controls, with no
+                    # capture, browser scanning or thumbnail work.
+                    filmstrip = thumbnails.read(video if video.get('browser')=='firefox'
+                                                else {'length':0,'can_seek':False})
+                    if filmstrip:
+                        video = {**video, 'filmstrip': filmstrip}
+                    snapshot = {**snapshot, 'video': video}
+                else:
+                    thumbnails.read({'length': 0, 'can_seek': False})
             except Exception:
                 focus = None
                 snapshot = {'title': 'GNOME bridge unavailable', 'actions': [],
@@ -109,7 +124,16 @@ class DesktopWorker:
             except queue.Empty:
                 action = None
             try:
-                if action and action.startswith('context:') and token != consumed:
+                if action and action.startswith('video:'):
+                    if snapshot.get('video') and token == video_token(snapshot):
+                        def still_playing_in_focus():
+                            latest = client.state()
+                            return (latest.get('kind') == 'desktop' and client.display_on()
+                                and all(latest.get(key) == snapshot.get(key)
+                                        for key in ('token', 'app', 'pid', 'window', 'focus'))
+                                and reader.scan(latest) is None)
+                        media.activate(action, snapshot['video'], still_playing_in_focus)
+                elif action and action.startswith('context:') and token != consumed:
                     ident = action.removeprefix('context:')
                     if snapshot.get('token') == token and snapshot.get('display', True):
                         consumed = token
@@ -128,6 +152,9 @@ class DesktopWorker:
                 # No retries: a timeout may mean the action already happened.
                 pass
             self.stop.wait(max(0, 0.15 - (time.monotonic() - started)))
+        media.close()
+        thumbnails.close()
+        reader.close()
 
     @staticmethod
     def control(action):

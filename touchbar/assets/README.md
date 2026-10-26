@@ -34,6 +34,6 @@ The stock key positions, eight-pixel corner radius and charcoal colors follow
 the same pinned renderer's `stock_slice.rs`, scaled to the negotiated panel.
 Application and confirmation labels are drawn dynamically with Pango.
 
-Browser and Nautilus shortcut glyphs are original Cairo vector artwork in
+Browser, Nautilus, playback and slider-close glyphs are original Cairo vector artwork in
 `icons.py`, covered by this project's MIT license. They follow the existing
 monochrome control style and do not use extracted Apple artwork or theme icons.

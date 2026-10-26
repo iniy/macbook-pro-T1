@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: MIT
 """Scene selection and release-to-activate gesture state, independent of I/O."""
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import hashlib
 import json
 import re
+from media import video_token
 
 
 ICON_PROFILE_APPS = re.compile(r'firefox|chromium|google-chrome|brave|org\.gnome\.Nautilus', re.I)
@@ -40,6 +41,8 @@ class Scene:
     context: str
     kind: str = 'controls'
     progress: int = -1
+    playback: dict = field(default=None, repr=False, compare=False)
+    volume: dict = field(default=None, repr=False, compare=False)
 
     @property
     def signature(self):
@@ -62,6 +65,16 @@ def scene_for(state, overlay=None, fn=False, features=0x27, page=0):
     kind = state.get('kind', 'controls')
     dialog = kind in ('shell-dialog', 'app-dialog')
     controls = [Button('Mute', 'audio:mute'), Button('Vol −', 'audio:down'), Button('Vol +', 'audio:up')]
+    if kind == 'desktop' and state.get('video'):
+        video = state['video']
+        playing = video['status'] == 'Playing'
+        buttons = (Button('esc', 'key:1'),
+                   Button('Back 10 seconds', 'video:backward', video['can_seek'], icon='rewind'),
+                   Button('Pause' if playing else 'Play', 'video:toggle',
+                          video['can_pause' if playing else 'can_play'], icon='pause' if playing else 'play'),
+                   Button('Forward 10 seconds', 'video:forward', video['can_seek'], icon='fast-forward'),
+                   Button('Seek', 'video:seek', video['can_seek'] and video['length'] > 0), *controls)
+        return Scene('', buttons, video_token(state), 'video', playback=video)
     buttons = [] if dialog else [Button('esc', 'key:1')]
     actions = state.get('actions', [])
     if actions:
@@ -122,4 +135,37 @@ class Gesture:
                 self.held = (ident, target, now)
         elif ident != self.held[0] or target != self.held[1] or now - self.held[2] > 5:
             self.blocked, self.held = True, None
+        return None
+
+
+class Scrub:
+    """Only a touch that starts on the timeline can become a video scrub."""
+    def __init__(self, action='video:seek'):
+        self.action = action
+        self.signature, self.changed, self.held, self.blocked = None, 0, None, False
+
+    def update_scene(self, signature, now):
+        if signature != self.signature:
+            self.signature, self.changed = signature, now
+            self.blocked = self.blocked or self.held is not None
+            self.held = None
+
+    def input(self, contacts, hit, fraction, now):
+        if not contacts:
+            held, self.held = self.held, None
+            blocked, self.blocked = self.blocked, False
+            if held and not blocked and .06 <= now - held[2] <= 10:
+                return held[1]
+            return None
+        if self.blocked:
+            return None
+        if len(contacts) != 1 or now - self.changed < .3:
+            self.blocked, self.held = True, None
+            return None
+        ident, x, y = contacts[0]
+        if (hit(x, y) != self.action or
+                self.held and (ident != self.held[0] or now - self.held[2] > 10)):
+            self.blocked, self.held = True, None
+            return None
+        self.held = (ident, fraction(x, y), self.held[2] if self.held else now)
         return None

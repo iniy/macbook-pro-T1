@@ -199,7 +199,8 @@ class InstallerTests(unittest.TestCase):
             values = {'enabled-extensions': [], 'disabled-extensions': []}
             def get_strv(self, key): return self.values[key]
             def set_strv(self, key, value): self.values[key] = value; return True
-            def get_boolean(self, key): return False
+            def get_boolean(self, key): return self.values.get(key,False)
+            def set_boolean(self, key, value): self.values[key] = value; return True
         self.settings = Settings()
         self.patches = [patch.object(Path, 'home', return_value=self.home),
                         patch.dict(os.environ, {f'XDG_{k}_HOME': str(self.home / k.lower())
@@ -233,7 +234,9 @@ class InstallerTests(unittest.TestCase):
                          (ROOT / 'touchbar/assets/Inter-Medium.otf').read_bytes())
         self.command('enable')
         self.assertNotEqual(selection.read_text(), '#!/bin/false\n')
+        self.assertFalse(self.settings.get_boolean('toolkit-accessibility'))
         self.command('disable')
+        self.assertFalse(self.settings.get_boolean('toolkit-accessibility'))
         self.assertEqual(selection.read_text(), '#!/bin/false\n')
         self.assertEqual(selection.stat().st_mode & 0o777, 0o751)
         self.assertEqual(self.settings.values['enabled-extensions'], [])
@@ -250,6 +253,22 @@ class InstallerTests(unittest.TestCase):
         self.command('disable')
         self.assertTrue(selection.is_symlink())
         self.assertEqual(os.readlink(selection), '/synthetic/previous-renderer')
+
+    def test_playback_installs_without_capture_or_browser_helpers(self):
+        self.command('install')
+        library=self.home/'.local/lib/macbook-t1-gnome-touchbar'
+        self.assertFalse((library/'native.py').exists())
+        self.assertFalse((library/'live_host.py').exists())
+        self.assertFalse((self.home/'.mozilla/native-messaging-hosts').exists())
+        self.assertFalse((self.home/'config/google-chrome/NativeMessagingHosts').exists())
+
+    def test_existing_accessibility_setting_is_preserved(self):
+        self.settings.values['toolkit-accessibility']=True
+        self.command('install')
+        self.command('enable')
+        self.command('disable')
+        self.assertTrue(self.settings.get_boolean('toolkit-accessibility'))
+        self.assertNotIn('screen-reader-enabled',self.settings.values)
 
     def test_modified_installed_file_is_preserved(self):
         self.command('install')
@@ -372,6 +391,7 @@ class RuntimeTests(unittest.TestCase):
         overlay = lambda: {'state': 'authenticate' if now[0] < 1.2 else 'success', 'pid': 42}
         with patch.object(protocol, 'Hardware', FakeHardware), \
                 patch.object(bridge, 'read_overlay', side_effect=overlay), \
+                patch('volume.VolumeWorker.observe'), \
                 patch.object(bridge.time, 'monotonic', side_effect=lambda: now[0]):
             with self.assertRaises(KeyboardInterrupt):
                 bridge.render_session(worker)

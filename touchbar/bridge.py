@@ -9,8 +9,10 @@ import struct
 import sys
 import time
 
-from model import Gesture, scene_for
+from model import Gesture, Scrub, scene_for
+from motion import FrameBlend, TimelineMotion
 from overlay import read_overlay
+from volume import VolumePanel
 
 
 def hardware_action(hardware, action):
@@ -29,7 +31,7 @@ def hardware_action(hardware, action):
 
 def render_session(worker):
     import cairo
-    from paint import animation_frame, draw, hit_test
+    from paint import animation_frame, draw, hit_test, seek_fraction, volume_fraction
     from protocol import Hardware
     if os.geteuid() == 0:
         raise RuntimeError('Run the renderer as the desktop user')
@@ -37,6 +39,10 @@ def render_session(worker):
     surface = cairo.ImageSurface.create_for_data(hardware.memory, cairo.FORMAT_RGB24,
                                                hardware.width, hardware.height, hardware.width * 4)
     gesture, fn, page = Gesture(), False, 0
+    scrub = Scrub()
+    motion, lens = TimelineMotion(), FrameBlend()
+    volume = VolumePanel()
+    next_video_frame = 0
     rendered, render_state, boxes, token, context = None, None, [], '', None
     stamp = None
     guidance_since = None
@@ -47,21 +53,61 @@ def render_session(worker):
             if state.get('token') != context:
                 context, page = state.get('token'), 0
             overlay = read_overlay()
-            scene = scene_for(state, overlay, fn, hardware.features if hardware.minor else 0x27, page)
+            base = scene_for(state, overlay, fn, hardware.features if hardware.minor else 0x27, page)
+            scene = volume.scene(base, now)
             gesture.update_scene(scene.signature, now)
+            scrub.update_scene(scene.signature, now)
             pressed = gesture.held[1] if gesture.held and not gesture.blocked else None
+            fraction = scrub.held[1] if scrub.held and not scrub.blocked else None
+            if fraction is not None:
+                pressed = 'video:seek'
+            if volume.slider.held and not volume.slider.blocked:
+                pressed = 'volume:level'
+            if volume.opener and not volume.opener['cancelled'] and not volume.opener['opened']:
+                pressed = volume.opener['action']
             if scene.kind != 'fingerprint':
                 guidance_since = None
             elif guidance_since is None:
                 guidance_since = now
             frame = animation_frame(scene, now - guidance_since if guidance_since is not None else 0)
-            next_render_state = (scene.signature, pressed, frame)
-            if next_render_state != render_state and not hardware.busy:
-                boxes = draw(surface, scene, hardware.width, hardware.height, pressed, frame or 0)
+            position = motion.update(scene.context, scene.playback, fraction, now) if scene.playback else None
+            filmstrip = scene.playback.get('filmstrip') if scene.playback else None
+            lens_frames = None
+            if filmstrip and scene.playback['length']:
+                lens_frames = lens.update(filmstrip.revision,
+                    filmstrip.frame_at(position/scene.playback['length']), now)
+            # Passive playback changes less than a pixel between many refreshes.
+            # Keep touch/dissolve animation at 60 Hz; skip visually redundant
+            # playback frames, retaining quarter-pixel marker precision.
+            progress = (round(position/scene.playback['length']*3200)
+                        if scene.playback and scene.playback['length'] else 0)
+            video_frame = (position // (1_000 if fraction is not None else 1_000_000),
+                           progress, fraction is not None,
+                           filmstrip.revision if filmstrip else None, lens_frames) if position is not None else None
+            volume_frame = ((round(scene.volume['level'], 3), scene.volume['muted'])
+                            if scene.kind == 'volume' else bool(scene.volume and scene.volume['muted']))
+            next_render_state = (scene.signature, pressed, frame, video_frame, volume_frame)
+            due = not scene.playback or now >= next_video_frame
+            if scene.playback and due and not hardware.busy:
+                # Advance even when no pixels changed, avoiding a 1 ms busy loop.
+                next_video_frame = now + 1/60
+            if next_render_state != render_state and not hardware.busy and due:
+                visual_fraction = position/scene.playback['length'] if fraction is not None and scene.playback['length'] else None
+                boxes = draw(surface, scene, hardware.width, hardware.height, pressed, frame or 0,
+                             position, visual_fraction, lens_frames)
                 hardware.submit()
-                rendered, token = scene.signature, state.get('token', '')
+                rendered = scene.signature
+                token = scene.context if scene.kind == 'video' else state.get('token', '')
                 render_state = next_render_state
-            event = hardware.event()
+            if scene.playback:
+                # Wake for animation at 60 Hz; release messages still govern
+                # when the shared buffer may be drawn into again.
+                moving = (scene.playback['status'] == 'Playing' or fraction is not None
+                          or next_render_state != render_state or now-lens.started < .1)
+                timeout = max(.001, min(.04, next_video_frame-time.monotonic())) if moving and not hardware.busy else .04
+                event = hardware.event(timeout=timeout)
+            else:
+                event = hardware.event()
             if event is None:
                 continue
             timestamp, next_fn, contacts = event
@@ -69,22 +115,40 @@ def render_session(worker):
             # not the host CLOCK_MONOTONIC epoch. Only compare stream ordering.
             if stamp is not None and timestamp <= stamp:
                 gesture.blocked, gesture.held = True, None
+                scrub.blocked, scrub.held = True, None
+                volume.cancel_touch()
                 continue
             stamp = timestamp
             if next_fn != fn:
                 fn = next_fn
                 gesture.blocked, gesture.held = bool(contacts), None
+                scrub.blocked, scrub.held = bool(contacts), None
+                volume.cancel_touch()
                 continue
             hit = lambda x, y: hit_test(boxes, x, y) if rendered == scene.signature else None
-            action = gesture.input(contacts, hit, time.monotonic())
+            if volume.button_input(contacts, hit, base, time.monotonic(), hardware.width, hardware.height,
+                                   not gesture.blocked and gesture.held is None and now-gesture.changed >= .3):
+                gesture.blocked, gesture.held = bool(contacts), None
+                scrub.blocked, scrub.held = bool(contacts), None
+                continue
+            seek = scrub.input(contacts, hit, lambda x, y: seek_fraction(boxes, x, y), time.monotonic())
+            volume.input(contacts, hit, lambda x, y: volume_fraction(boxes, x, y), time.monotonic())
+            button_hit = lambda x, y: None if hit(x, y) in ('video:seek', 'volume:level') else hit(x, y)
+            action = gesture.input(contacts, button_hit, time.monotonic())
+            if seek is not None:
+                motion.released(seek, scene.playback, time.monotonic())
+                worker.dispatch(f'video:seek:{seek:.6f}', token)
+            if volume.action(action, base, time.monotonic()):
+                continue
             if action == 'page:next':
                 page += 1
             elif action:
-                if action.startswith(('context:', 'audio:', 'media:')):
+                if action.startswith(('context:', 'audio:', 'media:', 'video:')):
                     worker.dispatch(action, token)
                 else:
                     hardware_action(hardware, action)
     finally:
+        volume.close()
         surface.finish()
         del surface
         hardware.close()
