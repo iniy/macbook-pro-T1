@@ -23,14 +23,14 @@ def capture_nodes():
             continue
         node = '/dev/' + entry.name
         formats = subprocess.check_output(['v4l2-ctl', '-d', node, '--list-formats-ext'], text=True)
-        if "'MJPG'" in formats:
+        if "'MJPG'" in formats or "'H264'" in formats:
             nodes.append((node, formats))
     return nodes
 
 
-def capture(node, resolution):
+def capture(node, resolution, input_format='mjpeg'):
     command = ['ffmpeg', '-nostdin', '-hide_banner', '-loglevel', 'error', '-f', 'v4l2',
-               '-input_format', 'mjpeg', '-video_size', resolution, '-framerate', '30',
+               '-input_format', input_format, '-video_size', resolution, '-framerate', '30',
                '-i', node, '-frames:v', '30', '-vf', 'scale=32:24,format=gray', '-f', 'rawvideo', 'pipe:1']
     p = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=20)
     frames = [p.stdout[i:i + 768] for i in range(0, len(p.stdout), 768)]
@@ -49,13 +49,16 @@ def main():
     args = parser.parse_args()
     nodes = capture_nodes()
     if not nodes:
-        raise RuntimeError('No T1 MJPEG capture node; check shared Touch Bar/iBridge initialization')
+        raise RuntimeError('No T1 MJPEG or H.264 capture node; check shared Touch Bar/iBridge initialization')
     for node, formats in nodes:
         print('PASS standard T1 UVC capture node:', node)
         print(formats)
+        input_format = 'mjpeg' if "'MJPG'" in formats else 'h264'
+        if input_format == 'h264':
+            print('H.264-only T1 mode: browsers need the on-demand browser camera adapter.')
         if args.capture:
             for resolution in ['640x480', '1280x720']:
-                capture(node, resolution)
+                capture(node, resolution, input_format)
     print('PASS camera ' + ('frame capture/decode; no recording retained' if args.capture else 'enumeration; capture not requested'))
     print('Browser preview and reboot/suspend must be tested separately.')
 

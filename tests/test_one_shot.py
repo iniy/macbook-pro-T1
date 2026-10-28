@@ -18,6 +18,28 @@ spec.loader.exec_module(module)
 
 
 class OneShot(unittest.TestCase):
+    def test_camera_is_prepared_before_touchid_boot_image_for_selected_account(self):
+        args = argparse.Namespace(no_install_deps=False, no_sleep=True, no_wifi=True,
+                                  no_desktop=False, wifi_profile=None, activate_wifi=False,
+                                  touchid_user='desktop')
+        commands = [cmd for _, cmd in module.commands(args)]
+        camera = next(cmd for cmd in commands if str(ROOT / 'camera/browser-setup.py') in cmd)
+        touchid = next(cmd for cmd in commands if str(ROOT / 'touchid/manage.py') in cmd and 'install' in cmd)
+        self.assertLess(commands.index(camera), commands.index(touchid))
+        self.assertEqual(camera[2:], ['--install', '--install-deps', '--account', 'desktop'])
+
+    def test_camera_respects_headless_baseline_trial_and_dependency_options(self):
+        for option in ('--no-desktop', '--no-touchid', '--touchid-trial'):
+            with self.subTest(option=option), patch.object(sys, 'argv', ['one_shot.py', '--plan', option]), \
+                 redirect_stdout(io.StringIO()) as output:
+                self.assertEqual(module.main(), 0)
+                self.assertNotIn('camera/browser-setup.py', output.getvalue())
+        with patch.object(sys, 'argv', ['one_shot.py', '--plan', '--no-install-deps']), \
+             redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(module.main(), 0)
+            camera = next(line for line in output.getvalue().splitlines() if 'camera/browser-setup.py' in line)
+            self.assertNotIn('--install-deps', camera)
+
     def test_default_routes_all_hardware_and_desktop_without_live_reset(self):
         args = argparse.Namespace(no_install_deps=False, no_sleep=False, no_wifi=False, no_desktop=False,
                                   wifi_profile=None, activate_wifi=False)

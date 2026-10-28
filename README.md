@@ -4,7 +4,8 @@ One-shot setup for the late-2016 MacBook Pro 13,2 on Ubuntu 26.10:
 
 * Apple T1 Touch Bar and keyboard integration
 * CS8409 internal speakers, headphones and microphone
-* FaceTime HD camera through Ubuntu `uvcvideo`
+* FaceTime HD camera through UVC, with an on-demand [browser adapter](camera/README.md)
+  for H.264-only Touch ID boots
 * Broadcom BCM43602 5 GHz-only Wi-Fi
 * Guarded s2idle suspend with NVMe and PCIe power workarounds
 * GNOME Bounce Keys preference
@@ -60,6 +61,12 @@ components, then runs these steps:
     NetworkManager profile, and disables automatic fallback to older Wi-Fi profiles.
 4. `desktop/configure.sh` — reports the three touchpad settings without changing
    them, then enables GNOME Bounce Keys with a 100 ms delay.
+   The default desktop flow also runs `camera/browser-setup.py --install` before
+   staging Touch ID. It installs the signed Ubuntu loopback module if needed and
+   builds an on-demand **FaceTime HD (Browser)** camera as the selected desktop
+   user. Repeat runs preserve the working adapter, local edits and disabled
+   services. Select this camera in Meet; use **Built-in Audio Analog Stereo**
+   for microphone and speakers. See [camera setup and removal](camera/README.md).
 5. `touchid/manage.py install` — installs missing dependencies, builds or reuses
    the private fingerprint stack, installs the GNOME 51 volume/mute OSD helper,
    enables persistent Touch ID boot, and installs display and fingerprint

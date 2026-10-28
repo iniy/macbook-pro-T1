@@ -41,6 +41,11 @@ def commands(args):
         yield '5 GHz Wi-Fi', wifi
     if not args.no_desktop:
         yield 'GNOME user settings', ['bash', str(ROOT / 'desktop/configure.sh')]
+    if touchid and not getattr(args, 'touchid_trial', False) and not args.no_desktop:
+        yield 'On-demand browser camera for the Touch ID desktop account', [
+            'python3', str(ROOT / 'camera/browser-setup.py'), '--install',
+            *([] if args.no_install_deps else ['--install-deps']),
+            *(['--account', args.touchid_user] if getattr(args, 'touchid_user', None) else [])]
     if getattr(args, 'touchid_trial', False):
         yield 'Attended one-boot Touch ID trial', [
             'python3', str(ROOT / 'touchid/manage.py'), 'trial',
@@ -86,6 +91,8 @@ def main():
             return result.returncode
     print('Selected components are installed/configured. Existing fingerprints and password authentication are preserved.')
     print('No automatic reboot was requested. Newly staged kernel drivers take effect on reboot.')
+    if not args.no_desktop and not args.no_touchid and not args.touchid_trial:
+        print('In Meet, select FaceTime HD (Browser) and Built-in Audio Analog Stereo.')
     if not args.no_sleep:
         print('Sleep configuration is installed; restart if the sleep installer reported a pending boot setting.')
         print('Normal suspend is guarded against attached storage. Physical sleep/wake and battery drain need validation.')

@@ -30,6 +30,14 @@ jobs:
           fi
       - run: python3 -m unittest discover -s tests -p test_touchid.py -v
       - run: python3 tests/test_one_shot.py
+      - run: python3 -m unittest discover -s tests/camera -v
+
+  camera-bridge-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Build browser camera adapter without hardware access
+        run: cc -std=c11 -O2 -Wall -Wextra -Werror -o "$RUNNER_TEMP/browser-bridge" camera/browser-bridge.c
 
   source-build:
     if: github.event_name == 'workflow_dispatch'
